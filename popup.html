@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>G-Maps Scraper</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>G-Maps Scraper</h1>
+      <p class="subtitle">Extract data from the current business profile</p>
+    </header>
+
+    <main>
+      <div class="actions">
+        <button id="extractBtn" class="primary-btn">Extract Business Info</button>
+        <button id="enrichBtn" class="secondary-btn" disabled>Enrich from Website</button>
+      </div>
+
+      <div class="stats">
+        <span id="recordCount">0</span> records captured
+      </div>
+
+      <div class="table-container">
+        <table id="resultsTable">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Phone</th>
+              <th>Website</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Data rows will be injected here -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="export-actions">
+        <button id="copyBtn" title="Copy to clipboard for Google Sheets">Copy All</button>
+        <button id="csvBtn">Export CSV</button>
+        <button id="xlsxBtn">Export XLSX</button>
+        <button id="clearBtn" class="danger-btn">Clear All</button>
+      </div>
+    </main>
+
+    <footer>
+      <p>Data stored locally in your browser.</p>
+    </footer>
+  </div>
+  <script src="libs/xlsx.full.min.js"></script>
+  <script src="utils.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

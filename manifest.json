@@ -1,0 +1,30 @@
+{
+    "manifest_version": 3,
+    "name": "Google Maps Business Data Scraper",
+    "version": "1.0",
+    "description": "Extracts structured business data from Google Maps profiles.",
+    "permissions": [
+        "activeTab",
+        "storage",
+        "scripting"
+    ],
+    "host_permissions": [
+        "https://www.google.com/maps/*"
+    ],
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "https://www.google.com/maps/*"
+            ],
+            "js": [
+                "content.js"
+            ]
+        }
+    ]
+}
