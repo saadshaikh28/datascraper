@@ -57,24 +57,48 @@ function extractBusinessInfo() {
         if (websiteEl) info.website = websiteEl.href;
 
         // 6. Rating and Review Count
-        const ratingEl = document.querySelector('span.ceNzR[aria-label*="stars"]') ||
-            document.querySelector('span[aria-label*="stars"]') ||
-            document.querySelector('div.F7kYv span');
-        if (ratingEl) {
-            const label = ratingEl.getAttribute('aria-label') || ratingEl.innerText;
-            if (label) {
-                const match = label.match(/(\d[.,]\d)/) || label.match(/(\d)/);
-                if (match) {
-                    info.rating = match[0].replace(',', '.');
+        try {
+            // Method A: Look for the consolidated stats container
+            const statsContainer = document.querySelector('div.F7kYv') ||
+                document.querySelector('span.fontBodyMedium') ||
+                document.querySelector('div.fontBodyMedium');
+
+            if (statsContainer) {
+                const text = statsContainer.innerText || statsContainer.getAttribute('aria-label') || '';
+                // Rating: Look for 4.5 or 4,5
+                const ratingMatch = text.match(/(\d[.,]\d)/);
+                if (ratingMatch) info.rating = ratingMatch[1].replace(',', '.');
+
+                // Reviews: Look for numbers in parentheses like (1,234) or followed by "reviews"
+                const reviewsMatch = text.match(/\(([\d,.]+)\)/) || text.match(/([\d,.]+)\s*reviews/i);
+                if (reviewsMatch) info.reviewCount = reviewsMatch[1].replace(/[^0-9]/g, '');
+            }
+
+            // Method B: Fallback to specific elements if Method A missed something
+            if (!info.rating) {
+                const ratingEl = document.querySelector('span.ceNzR[aria-label*="stars"]') ||
+                    document.querySelector('span[aria-label*="stars"]') ||
+                    document.querySelector('span.MW4v7d');
+                if (ratingEl) {
+                    const label = ratingEl.getAttribute('aria-label') || ratingEl.innerText;
+                    const match = label.match(/(\d[.,]\d)/) || label.match(/(\d)/);
+                    if (match) info.rating = match[0].replace(',', '.');
                 }
             }
-        }
 
-        const reviewsEl = document.querySelector('button[aria-label*="reviews"]') ||
-            document.querySelector('span[aria-label*="reviews"]');
-        if (reviewsEl) {
-            const label = reviewsEl.getAttribute('aria-label') || reviewsEl.innerText;
-            info.reviewCount = label.replace(/[^0-9]/g, '');
+            if (!info.reviewCount) {
+                const reviewsEl = document.querySelector('button[aria-label*="reviews"]') ||
+                    document.querySelector('span[aria-label*="reviews"]') ||
+                    document.querySelector('span.a09hYc') ||
+                    document.querySelector('span.fontBodyMedium span:last-child');
+                if (reviewsEl) {
+                    const label = reviewsEl.getAttribute('aria-label') || reviewsEl.innerText;
+                    const count = label.replace(/[^0-9]/g, '');
+                    if (count) info.reviewCount = count;
+                }
+            }
+        } catch (e) {
+            console.error('[G-Maps Organizer] Rating/Review extraction error:', e);
         }
 
         // 7. Opening Hours
