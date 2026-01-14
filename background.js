@@ -1,9 +1,17 @@
 /**
  * background.js
  * 
- * Service worker for handling background tasks like fetching
- * and parsing external websites for enrichment.
+ * Handles window opening and enrichment fetching.
  */
+
+chrome.action.onClicked.addListener((tab) => {
+    chrome.windows.create({
+        url: chrome.runtime.getURL("popup.html"),
+        type: "popup",
+        width: 800,
+        height: 600
+    });
+});
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'enrichData') {

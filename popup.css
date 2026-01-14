@@ -12,7 +12,7 @@
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  width: 500px;
+  min-width: 600px;
   margin: 0;
   background-color: var(--bg-color);
   color: var(--text-color);
@@ -96,8 +96,9 @@ button {
 }
 
 .table-container {
-  max-height: 250px;
+  max-height: 400px;
   overflow-y: auto;
+  overflow-x: auto;
   border: 1px solid var(--border-color);
   border-radius: 4px;
   background-color: var(--white);
@@ -106,11 +107,13 @@ button {
 
 table {
   width: 100%;
+  min-width: 1200px;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
 }
 
-th, td {
+th,
+td {
   padding: 10px;
   text-align: left;
   border-bottom: 1px solid var(--border-color);
@@ -125,6 +128,49 @@ th {
 
 tr:hover {
   background-color: #f8f9fa;
+}
+
+.copy-col-btn {
+  background: none;
+  border: none;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px;
+  margin-left: 4px;
+  opacity: 0.5;
+}
+
+.copy-col-btn:hover {
+  opacity: 1;
+}
+
+.cell-copy-btn,
+.row-copy-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  font-size: 12px;
+  opacity: 0.3;
+}
+
+.cell-copy-btn:hover,
+.row-copy-btn:hover {
+  opacity: 1;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  color: var(--danger-color);
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.action-cell {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .export-actions {

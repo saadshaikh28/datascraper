@@ -1,15 +1,18 @@
-# Google Maps Business Data Scraper
+# Google Maps Business Data Research Tool
 
 A lightweight Chrome Extension that extracts business information from Google Maps profiles.
 
-## Features
-- **One-click extraction**: Get Name, Category, Address, Phone, Website, Rating, and Hours.
-- **Enrichment**: Fetch public emails and social links from the business's official website.
-- **Data Persistence**: Extracted data is saved locally in your browser.
-- **Export Options**: 
-  - **Copy All**: Formatted for easy pasting into Google Sheets or Excel.
-  - **Export CSV**: Standard CSV file for data analysis.
-  - **Export XLSX**: Excel spreadsheet format (requires XLSX library).
+## How to Use
+
+1. **Open Google Maps** and navigate to a business profile.
+2. **Click the Extension Icon** in your toolbar.
+3. A **standalone window** will open. You can resize this window or move it to another screen for better research.
+4. Click **Extract Business Info** to capture the data from your Maps tab.
+5. Use the **clipboard icons (📋)** as needed:
+   - **Top Header**: Copy an entire column.
+   - **Next to Data**: Copy a single cell.
+   - **Row End**: Copy the entire row for Google Sheets.
+6. Click **Enrich from Website** to fetch extra details like emails.
 
 ## How to Load this Extension
 
@@ -37,4 +40,4 @@ For **XLSX Export** to work, you need to download the `xlsx.full.min.js` library
 - **Emails & Socials** (via Enrichment)
 
 ---
-*Note: This tool is for personal use and does not perform automated scraping or crawling.*
+*Note: This tool is for personal use and does not perform automated extraction or crawling.*

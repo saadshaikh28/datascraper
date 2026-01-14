@@ -25,20 +25,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Extract Info Button
+    // Extract Info Button - Modified to search across all tabs if necessary
     extractBtn.addEventListener('click', async () => {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        // Find the Google Maps tab
+        const tabs = await chrome.tabs.query({ url: "*://www.google.com/maps/*" });
+        const mapTab = tabs.find(t => t.url.includes('/maps/place/'));
 
-        if (!tab.url.includes('google.com/maps')) {
-            alert('Please open a Google Maps business profile page first.');
+        if (!mapTab) {
+            alert('Please ensure a Google Maps business profile is open in another tab.');
             return;
         }
 
-        chrome.tabs.sendMessage(tab.id, { action: 'extractData' }, (response) => {
+        chrome.tabs.sendMessage(mapTab.id, { action: 'extractData' }, (response) => {
             if (response && response.data) {
-                // Only add if it's a valid extraction (has a name at least)
                 if (response.data.name) {
-                    // Check for duplicates (based on name and address)
                     const isDuplicate = currentData.some(item =>
                         item.name === response.data.name && item.address === response.data.address
                     );
@@ -51,8 +51,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         alert('This business is already in your list.');
                     }
                 } else {
-                    alert('Could not extract data. Make sure you are viewing a business profile.');
+                    alert('Could not extract data. Ensure you are on a business profile page.');
                 }
+            } else {
+                alert('No response from page. Try refreshing the Google Maps tab.');
             }
         });
     });
@@ -64,10 +66,10 @@ document.addEventListener('DOMContentLoaded', () => {
         enrichBtn.disabled = true;
         enrichBtn.innerText = 'Enriching...';
 
-        const lastItem = currentData[currentData.length - 1]; // Enrich the most recent one for simplicity
+        const lastItem = currentData[currentData.length - 1];
 
         if (!lastItem.website || lastItem.website === '-') {
-            alert('No website found for this business.');
+            alert('No website found for the latest business.');
             enrichBtn.disabled = false;
             enrichBtn.innerText = 'Enrich from Website';
             return;
@@ -79,13 +81,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response && response.success) {
                 lastItem.emails = response.data.emails.join(', ');
-                lastItem.socials = response.data.socials; // Save the object
-
+                lastItem.socials = response.data.socials;
                 saveData();
-                alert('Enrichment complete! Added emails and social links.');
                 updateTable();
+                alert('Enrichment complete! Emails and socials added.');
             } else {
-                alert('Enrichment failed: ' + (response.error || 'Check console'));
+                alert('Enrichment failed: ' + (response.error || 'CORS or Timeout. Ensure host_permissions are active.'));
             }
         });
     });
@@ -93,16 +94,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Copy All Button (Optimized for Google Sheets)
     copyBtn.addEventListener('click', () => {
         if (currentData.length === 0) return;
+        const text = formatForSheets(currentData);
+        copyToClipboard(text, copyBtn);
+    });
 
-        let tableText = 'Name\tCategory\tAddress\tPhone\tWebsite\tRating\tReviews\tHours\n';
-        currentData.forEach(item => {
-            tableText += `${item.name}\t${item.category}\t${item.address}\t${item.phone}\t${item.website}\t${item.rating}\t${item.reviewCount}\t${item.hours}\n`;
-        });
-
-        navigator.clipboard.writeText(tableText).then(() => {
-            const originalText = copyBtn.innerText;
-            copyBtn.innerText = 'Copied!';
-            setTimeout(() => copyBtn.innerText = originalText, 2000);
+    // Column Copy Buttons (Header)
+    document.querySelectorAll('.copy-col-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const col = e.target.getAttribute('data-col');
+            const colData = currentData.map(item => item[col] || '').join('\n');
+            copyToClipboard(colData, e.target);
         });
     });
 
@@ -113,11 +114,11 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadFile(csv, 'gmaps_export.csv', 'text/csv');
     });
 
-    // XLSX Export (Requires library)
+    // XLSX Export
     xlsxBtn.addEventListener('click', () => {
         if (currentData.length === 0) return;
         if (typeof XLSX === 'undefined') {
-            alert('XLSX library not loaded. Please ensure libs/xlsx.full.min.js is present.');
+            alert('XLSX library not loaded.');
             return;
         }
         const worksheet = XLSX.utils.json_to_sheet(currentData);
@@ -128,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Clear All
     clearBtn.addEventListener('click', () => {
-        if (confirm('Are you sure you want to clear all extracted data?')) {
+        if (confirm('Are you sure you want to clear all data?')) {
             currentData = [];
             saveData();
             updateTable();
@@ -144,17 +145,54 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsTableBody.innerHTML = '';
 
         currentData.slice().reverse().forEach((item, index) => {
+            const actualIndex = currentData.length - 1 - index;
             const row = document.createElement('tr');
             row.innerHTML = `
-        <td>${item.name}</td>
-        <td>${item.phone || '-'}</td>
-        <td>${item.website ? '<a href="' + item.website + '" target="_blank">Link</a>' : '-'}</td>
-        <td><button class="delete-btn" data-index="${currentData.length - 1 - index}">×</button></td>
-      `;
+                <td>
+                    ${item.name || '-'} 
+                    <button class="cell-copy-btn" data-value="${item.name || ''}" title="Copy Name">📋</button>
+                </td>
+                <td>
+                    ${item.category || '-'} 
+                    <button class="cell-copy-btn" data-value="${item.category || ''}" title="Copy Category">📋</button>
+                </td>
+                <td>
+                    ${item.address || '-'} 
+                    <button class="cell-copy-btn" data-value="${item.address || ''}" title="Copy Address">📋</button>
+                </td>
+                <td>
+                    ${item.phone || '-'} 
+                    <button class="cell-copy-btn" data-value="${item.phone || ''}" title="Copy Phone">📋</button>
+                </td>
+                <td>
+                    ${item.website ? '<a href="' + item.website + '" target="_blank">Link</a>' : '-'} 
+                    <button class="cell-copy-btn" data-value="${item.website || ''}" title="Copy Website">📋</button>
+                </td>
+                <td>
+                    ${item.rating || '-'} 
+                    <button class="cell-copy-btn" data-value="${item.rating || ''}" title="Copy Rating">📋</button>
+                </td>
+                <td>
+                    ${item.reviewCount || '-'} 
+                    <button class="cell-copy-btn" data-value="${item.reviewCount || ''}" title="Copy Reviews">📋</button>
+                </td>
+                <td>
+                    <span title="${item.hours || ''}">${item.hours ? item.hours.substring(0, 20) + '...' : '-'}</span>
+                    <button class="cell-copy-btn" data-value="${item.hours || ''}" title="Copy Hours">📋</button>
+                </td>
+                <td>
+                    <span title="${item.emails || ''}">${item.emails ? item.emails.substring(0, 20) + '...' : '-'}</span>
+                    <button class="cell-copy-btn" data-value="${item.emails || ''}" title="Copy Emails">📋</button>
+                </td>
+                <td class="action-cell">
+                    <button class="row-copy-btn" data-index="${actualIndex}" title="Copy Full Row for Sheets">📋 Row</button>
+                    <button class="delete-btn" data-index="${actualIndex}" title="Delete Record">×</button>
+                </td>
+            `;
             resultsTableBody.appendChild(row);
         });
 
-        // Add delete functionality
+        // Event Listeners for dynamic buttons
         document.querySelectorAll('.delete-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const idx = e.target.getAttribute('data-index');
@@ -164,15 +202,50 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
+        document.querySelectorAll('.cell-copy-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const val = e.target.getAttribute('data-value');
+                copyToClipboard(val, e.target);
+            });
+        });
+
+        document.querySelectorAll('.row-copy-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = e.target.getAttribute('data-index');
+                const item = currentData[idx];
+                const rowText = `${item.name}\t${item.category || ''}\t${item.address || ''}\t${item.phone || ''}\t${item.website || ''}\t${item.rating || ''}\t${item.reviewCount || ''}\t${item.hours || ''}\t${item.emails || ''}`;
+                copyToClipboard(rowText, e.target);
+            });
+        });
+
         // Enable/Disable Enrich button
         enrichBtn.disabled = currentData.length === 0;
     }
 
+    function formatForSheets(data) {
+        const headers = 'Name\tCategory\tAddress\tPhone\tWebsite\tRating\tReviews\tHours\tEmails\n';
+        const rows = data.map(item => {
+            return `${item.name}\t${item.category || ''}\t${item.address || ''}\t${item.phone || ''}\t${item.website || ''}\t${item.rating || ''}\t${item.reviewCount || ''}\t${item.hours || ''}\t${item.emails || ''}`;
+        }).join('\n');
+        return headers + rows;
+    }
+
+    function copyToClipboard(text, btn) {
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(() => {
+            const originalText = btn.innerText;
+            btn.innerText = '✅';
+            setTimeout(() => btn.innerText = originalText, 1000);
+        }).catch(err => {
+            console.error('Copy failed', err);
+        });
+    }
+
     function convertToCSV(data) {
+        if (data.length === 0) return '';
         const headers = Object.keys(data[0]).join(',');
         const rows = data.map(row => {
             return Object.values(row).map(value => {
-                // Escape quotes and wrap in quotes
                 const str = String(value).replace(/"/g, '""');
                 return `"${str}"`;
             }).join(',');

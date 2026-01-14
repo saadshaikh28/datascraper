@@ -1,15 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>G-Maps Scraper</title>
+  <title>G-Maps Organizer</title>
   <link rel="stylesheet" href="popup.css">
 </head>
+
 <body>
   <div class="container">
     <header>
-      <h1>G-Maps Scraper</h1>
+      <h1>G-Maps Organizer</h1>
       <p class="subtitle">Extract data from the current business profile</p>
     </header>
 
@@ -27,9 +29,15 @@
         <table id="resultsTable">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Phone</th>
-              <th>Website</th>
+              <th>Name <button class="copy-col-btn" data-col="name" title="Copy Column">📋</button></th>
+              <th>Category <button class="copy-col-btn" data-col="category" title="Copy Column">📋</button></th>
+              <th>Address <button class="copy-col-btn" data-col="address" title="Copy Column">📋</button></th>
+              <th>Phone <button class="copy-col-btn" data-col="phone" title="Copy Column">📋</button></th>
+              <th>Website <button class="copy-col-btn" data-col="website" title="Copy Column">📋</button></th>
+              <th>Rating <button class="copy-col-btn" data-col="rating" title="Copy Column">📋</button></th>
+              <th>Reviews <button class="copy-col-btn" data-col="reviewCount" title="Copy Column">📋</button></th>
+              <th>Hours <button class="copy-col-btn" data-col="hours" title="Copy Column">📋</button></th>
+              <th>Emails <button class="copy-col-btn" data-col="emails" title="Copy Column">📋</button></th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -55,4 +63,5 @@
   <script src="utils.js"></script>
   <script src="popup.js"></script>
 </body>
+
 </html>
