@@ -111,17 +111,45 @@ function extractBusinessInfo() {
 
         // 8. Place ID (Unique Google Identifier)
         try {
-            // Method 1: Data attributes
-            const pidEl = document.querySelector('[data-place-id]');
-            if (pidEl) {
-                info.placeId = pidEl.getAttribute('data-place-id');
+            // Priority 1: Search in URL (often found in !1s prefix)
+            // This is very reliable when a place is fully 'opened'
+            const urlMatch = window.location.href.match(/!1s(ChIJ[a-zA-Z0-9_-]{23})/);
+            if (urlMatch) {
+                info.placeId = urlMatch[1];
             }
 
-            // Method 2: Global scan for ChIJ pattern if method 1 fails
+            // Priority 2: Detail Pane Scoping (Context-Locked)
             if (!info.placeId) {
-                const pageHtml = document.documentElement.innerHTML;
-                const pidMatch = pageHtml.match(/ChIJ[a-zA-Z0-9_-]{23}/);
-                if (pidMatch) info.placeId = pidMatch[0];
+                const titleEl = document.querySelector('h1.DUwDvf') || document.querySelector('h1');
+                if (titleEl) {
+                    // Lock search to the specific sidebar container holding this business
+                    const detailPane = titleEl.closest('div[role="main"]') ||
+                        titleEl.closest('.m67pLc') ||
+                        titleEl.closest('.bJz19') ||
+                        document.body;
+
+                    // Target buttons that MUST have the specific ID for functionality
+                    const specificEl = detailPane.querySelector('button[jsaction*="suggestedits"]') ||
+                        detailPane.querySelector('button[aria-label*="Share"]') ||
+                        detailPane.querySelector('button[data-tooltip="Share"]');
+
+                    if (specificEl) {
+                        const pid = specificEl.getAttribute('data-place-id');
+                        if (pid && pid.startsWith('ChIJ')) {
+                            info.placeId = pid;
+                        } else {
+                            // Extract ChIJ from the element's inner/outer HTML (metadata)
+                            const match = specificEl.outerHTML.match(/ChIJ[a-zA-Z0-9_-]{23}/);
+                            if (match) info.placeId = match[0];
+                        }
+                    }
+
+                    // Failsafe: Scan only the detail pane boundaries
+                    if (!info.placeId && detailPane !== document.body) {
+                        const pidMatch = detailPane.innerHTML.match(/ChIJ[a-zA-Z0-9_-]{23}/);
+                        if (pidMatch) info.placeId = pidMatch[0];
+                    }
+                }
             }
         } catch (e) {
             console.error('[G-Maps Organizer] Place ID extraction error:', e);
