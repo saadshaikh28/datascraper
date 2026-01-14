@@ -213,8 +213,11 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.addEventListener('click', (e) => {
                 const idx = e.target.getAttribute('data-index');
                 const item = currentData[idx];
-                const rowText = `${item.name}\t${item.category || ''}\t${item.address || ''}\t${item.phone || ''}\t${item.website || ''}\t${item.rating || ''}\t${item.reviewCount || ''}\t${item.hours || ''}\t${item.emails || ''}`;
-                copyToClipboard(rowText, e.target);
+                const fields = [
+                    item.name, item.category, item.address, item.phone,
+                    item.website, item.rating, item.reviewCount, item.hours, item.emails
+                ].map(val => String(val || '').replace(/\r?\n|\r/g, ' ').trim());
+                copyToClipboard(fields.join('\t'), e.target);
             });
         });
 
@@ -225,7 +228,18 @@ document.addEventListener('DOMContentLoaded', () => {
     function formatForSheets(data) {
         const headers = 'Name\tCategory\tAddress\tPhone\tWebsite\tRating\tReviews\tHours\tEmails\n';
         const rows = data.map(item => {
-            return `${item.name}\t${item.category || ''}\t${item.address || ''}\t${item.phone || ''}\t${item.website || ''}\t${item.rating || ''}\t${item.reviewCount || ''}\t${item.hours || ''}\t${item.emails || ''}`;
+            const fields = [
+                item.name,
+                item.category,
+                item.address,
+                item.phone,
+                item.website,
+                item.rating,
+                item.reviewCount,
+                item.hours,
+                item.emails
+            ].map(val => String(val || '').replace(/\r?\n|\r/g, ' ').trim());
+            return fields.join('\t');
         }).join('\n');
         return headers + rows;
     }

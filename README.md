@@ -33,7 +33,7 @@ For **XLSX Export** to work, you need to download the `xlsx.full.min.js` library
 - **Business name**
 - **Primary category**
 - **Address**
-- **Phone number** (Formatted for cells - 10 digits only)
+- **Phone number** (Includes country code, digits only to prevent Sheet errors)
 - **Website URL**
 - **Opening hours**
 - **Rating and review count**

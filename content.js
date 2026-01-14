@@ -88,6 +88,13 @@ function extractBusinessInfo() {
         console.error('[G-Maps Organizer] Error during extraction:', error);
     }
 
+    // Final Sanitization: Remove all newlines within fields to prevent Google Sheets row splitting
+    for (let key in info) {
+        if (typeof info[key] === 'string' && key !== 'timestamp') {
+            info[key] = info[key].replace(/\r?\n|\r/g, ' ').trim();
+        }
+    }
+
     return info;
 }
 
@@ -95,9 +102,8 @@ function extractBusinessInfo() {
  * Helper to strip country code and format for Excel/Google Sheets.
  */
 function formatPhoneNumber(phone) {
-    let numeric = phone.replace(/[^0-9]/g, '');
-    if (numeric.length > 10) {
-        return numeric.slice(-10);
-    }
-    return numeric || phone;
+    // Remove all non-numeric characters (removes +, -, spaces, etc.)
+    // Keeping only digits ensures the country code is included without the "+" 
+    // leading to formula errors in Google Sheets.
+    return phone.replace(/[^0-9]/g, '');
 }
