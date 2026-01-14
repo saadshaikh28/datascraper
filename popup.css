@@ -117,13 +117,27 @@ td {
   padding: 10px;
   text-align: left;
   border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
 }
 
 th {
-  background-color: #f1f3f4;
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #5f6368;
+  cursor: move;
+  user-select: none;
   position: sticky;
   top: 0;
   z-index: 1;
+}
+
+th.dragging {
+  opacity: 0.5;
+  background-color: #e8f0fe;
+}
+
+th.over {
+  border-left: 2px solid var(--primary-color);
 }
 
 tr:hover {

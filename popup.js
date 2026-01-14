@@ -1,8 +1,5 @@
 /**
  * popup.js
- * 
- * Logic to handle UI events, communicate with content script,
- * and manage local storage.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -13,21 +10,59 @@ document.addEventListener('DOMContentLoaded', () => {
     const xlsxBtn = document.getElementById('xlsxBtn');
     const clearBtn = document.getElementById('clearBtn');
     const recordCountEl = document.getElementById('recordCount');
+    const tableHeader = document.querySelector('#resultsTable thead tr');
     const resultsTableBody = document.querySelector('#resultsTable tbody');
 
     let currentData = [];
 
-    // Load existing data from storage
-    chrome.storage.local.get(['businessData'], (result) => {
+    // Initial Column Configuration
+    // Each column has a key (data property), label (display name), and optional render function
+    let columnOrder = [
+        { id: 'mapsUrl', label: 'Maps Link' },
+        { id: 'name', label: 'Name' },
+        { id: 'category', label: 'Category' },
+        { id: 'address', label: 'Address' },
+        { id: 'phone', label: 'Phone' },
+        { id: 'website', label: 'Website' },
+        { id: 'rating', label: 'Rating' },
+        { id: 'reviewCount', label: 'Reviews' },
+        { id: 'hours', label: 'Hours' },
+        { id: 'emails', label: 'Emails' },
+        { id: 'webPhones', label: 'Web Phone' },
+        { id: 'facebook', label: 'FB' },
+        { id: 'instagram', label: 'IG' },
+        { id: 'twitter', label: 'X' },
+        { id: 'whatsapp', label: 'WA' },
+        { id: 'telegram', label: 'TG' }
+    ];
+
+    // Drag and Drop state
+    let draggedColumnId = null;
+
+    // Load existing data and column order from storage
+    chrome.storage.local.get(['businessData', 'columnOrder'], (result) => {
         if (result.businessData) {
             currentData = result.businessData;
-            updateTable();
         }
+        if (result.columnOrder) {
+            // Reconstruct columnOrder based on saved IDs to maintain structure/renders
+            const savedOrder = result.columnOrder;
+            const newOrder = [];
+            savedOrder.forEach(id => {
+                const col = columnOrder.find(c => c.id === id);
+                if (col) newOrder.push(col);
+            });
+            // Add any missing columns (e.g. if we added new fields in a code update)
+            columnOrder.forEach(col => {
+                if (!newOrder.find(c => c.id === col.id)) newOrder.push(col);
+            });
+            columnOrder = newOrder;
+        }
+        updateTable();
     });
 
-    // Extract Info Button - Modified to search across all tabs if necessary
+    // Extract Info Button
     extractBtn.addEventListener('click', async () => {
-        // Find the Google Maps tab
         const tabs = await chrome.tabs.query({ url: "*://www.google.com/maps/*" });
         const mapTab = tabs.find(t => t.url.includes('/maps/place/'));
 
@@ -97,20 +132,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Copy All Button (Optimized for Google Sheets)
+    // Copy All Button
     copyBtn.addEventListener('click', () => {
         if (currentData.length === 0) return;
         const text = formatForSheets(currentData);
         copyToClipboard(text, copyBtn);
-    });
-
-    // Column Copy Buttons (Header)
-    document.querySelectorAll('.copy-col-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const col = e.target.getAttribute('data-col');
-            const colData = currentData.map(item => item[col] || '').join('\n');
-            copyToClipboard(colData, e.target);
-        });
     });
 
     // CSV Export
@@ -143,128 +169,179 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function saveData() {
-        chrome.storage.local.set({ businessData: currentData });
+        chrome.storage.local.set({
+            businessData: currentData,
+            columnOrder: columnOrder.map(c => c.id)
+        });
     }
 
     function updateTable() {
         recordCountEl.innerText = currentData.length;
-        resultsTableBody.innerHTML = '';
+        renderHeader();
+        renderRows();
+        enrichBtn.disabled = currentData.length === 0;
+    }
 
-        currentData.slice().reverse().forEach((item, index) => {
-            const actualIndex = currentData.length - 1 - index;
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>
-                    <a href="${item.mapsUrl || '#'}" target="_blank">Profile</a> 
-                    <button class="cell-copy-btn" data-value="${item.mapsUrl || ''}" title="Copy Link">📋</button>
-                </td>
-                <td>
-                    ${item.name || '-'} 
-                    <button class="cell-copy-btn" data-value="${item.name || ''}" title="Copy Name">📋</button>
-                </td>
-                <td>
-                    ${item.category || '-'} 
-                    <button class="cell-copy-btn" data-value="${item.category || ''}" title="Copy Category">📋</button>
-                </td>
-                <td>
-                    ${item.address || '-'} 
-                    <button class="cell-copy-btn" data-value="${item.address || ''}" title="Copy Address">📋</button>
-                </td>
-                <td>
-                    ${item.phone || '-'} 
-                    <button class="cell-copy-btn" data-value="${item.phone || ''}" title="Copy Phone">📋</button>
-                </td>
-                <td>
-                    ${item.website ? '<a href="' + item.website + '" target="_blank">Link</a>' : '-'} 
-                    <button class="cell-copy-btn" data-value="${item.website || ''}" title="Copy Website">📋</button>
-                </td>
-                <td>
-                    ${item.rating || '-'} 
-                    <button class="cell-copy-btn" data-value="${item.rating || ''}" title="Copy Rating">📋</button>
-                </td>
-                <td>
-                    ${item.reviewCount || '-'} 
-                    <button class="cell-copy-btn" data-value="${item.reviewCount || ''}" title="Copy Reviews">📋</button>
-                </td>
-                <td>
-                    <span title="${item.hours || ''}">${item.hours ? item.hours.substring(0, 15) + '...' : '-'}</span>
-                    <button class="cell-copy-btn" data-value="${item.hours || ''}" title="Copy Hours">📋</button>
-                </td>
-                <td>
-                    <span title="${item.emails || ''}">${item.emails ? item.emails.substring(0, 15) + '...' : '-'}</span>
-                    <button class="cell-copy-btn" data-value="${item.emails || ''}" title="Copy Emails">📋</button>
-                </td>
-                <td>
-                    <span title="${item.webPhones || ''}">${item.webPhones ? item.webPhones.substring(0, 15) + '...' : '-'}</span>
-                    <button class="cell-copy-btn" data-value="${item.webPhones || ''}" title="Copy Web Phone">📋</button>
-                </td>
-                <td>
-                    <button class="cell-copy-btn" data-value="${item.facebook || ''}" title="Copy FB">📋</button>
-                </td>
-                <td>
-                    <button class="cell-copy-btn" data-value="${item.instagram || ''}" title="Copy IG">📋</button>
-                </td>
-                <td>
-                    <button class="cell-copy-btn" data-value="${item.twitter || ''}" title="Copy X">📋</button>
-                </td>
-                <td>
-                    <button class="cell-copy-btn" data-value="${item.whatsapp || ''}" title="Copy WA">📋</button>
-                </td>
-                <td>
-                    <button class="cell-copy-btn" data-value="${item.telegram || ''}" title="Copy TG">📋</button>
-                </td>
-                <td class="action-cell">
-                    <button class="row-copy-btn" data-index="${actualIndex}" title="Copy Full Row for Sheets">📋 Row</button>
-                    <button class="delete-btn" data-index="${actualIndex}" title="Delete Record">×</button>
-                </td>
-            `;
-            resultsTableBody.appendChild(row);
+    function renderHeader() {
+        tableHeader.innerHTML = '';
+        columnOrder.forEach(col => {
+            const th = document.createElement('th');
+            th.innerText = col.label + ' ';
+            th.draggable = true;
+            th.dataset.id = col.id;
+
+            const btn = document.createElement('button');
+            btn.className = 'copy-col-btn';
+            btn.dataset.col = col.id;
+            btn.title = 'Copy Column';
+            btn.innerText = '📋';
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const colId = e.target.dataset.col;
+                const colData = currentData.map(item => item[colId] || '').join('\n');
+                copyToClipboard(colData, e.target);
+            });
+            th.appendChild(btn);
+
+            // Drag events
+            th.addEventListener('dragstart', handleDragStart);
+            th.addEventListener('dragover', handleDragOver);
+            th.addEventListener('dragenter', handleDragEnter);
+            th.addEventListener('dragleave', handleDragLeave);
+            th.addEventListener('drop', handleDrop);
+            th.addEventListener('dragend', handleDragEnd);
+
+            tableHeader.appendChild(th);
         });
 
-        // Event Listeners for dynamic buttons
-        document.querySelectorAll('.delete-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const idx = e.target.getAttribute('data-index');
+        // Fixed Actions column
+        const actionsTh = document.createElement('th');
+        actionsTh.innerText = 'Actions';
+        tableHeader.appendChild(actionsTh);
+    }
+
+    function renderRows() {
+        resultsTableBody.innerHTML = '';
+        currentData.slice().reverse().forEach((item, index) => {
+            const actualIndex = currentData.length - 1 - index;
+            const tr = document.createElement('tr');
+
+            columnOrder.forEach(col => {
+                const td = document.createElement('td');
+                const value = item[col.id] || '';
+
+                // Custom Rendering for specific columns
+                if (col.id === 'mapsUrl') {
+                    td.innerHTML = `<a href="${value || '#'}" target="_blank">Profile</a> `;
+                } else if (col.id === 'website') {
+                    td.innerHTML = value ? `<a href="${value}" target="_blank">Link</a> ` : '- ';
+                } else if (['hours', 'emails', 'webPhones'].includes(col.id)) {
+                    td.innerHTML = `<span title="${value}">${value ? value.substring(0, 15) + '...' : '-'}</span> `;
+                } else {
+                    td.innerText = value || '- ';
+                }
+
+                const btn = document.createElement('button');
+                btn.className = 'cell-copy-btn';
+                btn.dataset.value = value;
+                btn.title = 'Copy ' + col.label;
+                btn.innerText = '📋';
+                btn.addEventListener('click', (e) => {
+                    copyToClipboard(e.target.dataset.value, e.target);
+                });
+                td.appendChild(btn);
+                tr.appendChild(td);
+            });
+
+            // Action Column
+            const actionTd = document.createElement('td');
+            actionTd.className = 'action-cell';
+
+            const rowCopyBtn = document.createElement('button');
+            rowCopyBtn.className = 'row-copy-btn';
+            rowCopyBtn.dataset.index = actualIndex;
+            rowCopyBtn.title = 'Copy Full Row for Sheets';
+            rowCopyBtn.innerText = '📋 Row';
+            rowCopyBtn.addEventListener('click', (e) => {
+                const idx = e.target.dataset.index;
+                const item = currentData[idx];
+                const fields = columnOrder.map(col =>
+                    String(item[col.id] || '').replace(/\r?\n|\r/g, ' ').trim()
+                );
+                copyToClipboard(fields.join('\t'), e.target);
+            });
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.dataset.index = actualIndex;
+            deleteBtn.title = 'Delete Record';
+            deleteBtn.innerText = '×';
+            deleteBtn.addEventListener('click', (e) => {
+                const idx = e.target.dataset.index;
                 currentData.splice(idx, 1);
                 saveData();
                 updateTable();
             });
-        });
 
-        document.querySelectorAll('.cell-copy-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const val = e.target.getAttribute('data-value');
-                copyToClipboard(val, e.target);
-            });
-        });
+            actionTd.appendChild(rowCopyBtn);
+            actionTd.appendChild(deleteBtn);
+            tr.appendChild(actionTd);
 
-        document.querySelectorAll('.row-copy-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const idx = e.target.getAttribute('data-index');
-                const item = currentData[idx];
-                const fields = [
-                    item.mapsUrl, item.name, item.category, item.address, item.phone,
-                    item.website, item.rating, item.reviewCount, item.hours,
-                    item.emails, item.webPhones, item.facebook, item.instagram,
-                    item.twitter, item.whatsapp, item.telegram
-                ].map(val => String(val || '').replace(/\r?\n|\r/g, ' ').trim());
-                copyToClipboard(fields.join('\t'), e.target);
-            });
+            resultsTableBody.appendChild(tr);
         });
+    }
 
-        // Enable/Disable Enrich button
-        enrichBtn.disabled = currentData.length === 0;
+    // Drag and Drop Logic
+    function handleDragStart(e) {
+        draggedColumnId = this.dataset.id;
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleDragOver(e) {
+        if (e.preventDefault) e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        return false;
+    }
+
+    function handleDragEnter(e) {
+        this.classList.add('over');
+    }
+
+    function handleDragLeave(e) {
+        this.classList.remove('over');
+    }
+
+    function handleDrop(e) {
+        if (e.stopPropagation) e.stopPropagation();
+        this.classList.remove('over');
+
+        const targetId = this.dataset.id;
+        if (targetId !== draggedColumnId) {
+            const dragIdx = columnOrder.findIndex(c => c.id === draggedColumnId);
+            const dropIdx = columnOrder.findIndex(c => c.id === targetId);
+
+            const temp = columnOrder.splice(dragIdx, 1)[0];
+            columnOrder.splice(dropIdx, 0, temp);
+
+            saveData();
+            updateTable();
+        }
+        return false;
+    }
+
+    function handleDragEnd() {
+        this.classList.remove('dragging');
+        document.querySelectorAll('th').forEach(th => th.classList.remove('over'));
+        draggedColumnId = null;
     }
 
     function formatForSheets(data) {
-        const headers = 'Maps Link\tName\tCategory\tAddress\tPhone\tWebsite\tRating\tReviews\tHours\tEmails\tWeb Phone\tFB\tIG\tX\tWA\tTG\n';
+        const headers = columnOrder.map(c => c.label).join('\t') + '\n';
         const rows = data.map(item => {
-            const fields = [
-                item.mapsUrl, item.name, item.category, item.address, item.phone,
-                item.website, item.rating, item.reviewCount, item.hours,
-                item.emails, item.webPhones, item.facebook, item.instagram,
-                item.twitter, item.whatsapp, item.telegram
-            ].map(val => String(val || '').replace(/\r?\n|\r/g, ' ').trim());
+            const fields = columnOrder.map(col =>
+                String(item[col.id] || '').replace(/\r?\n|\r/g, ' ').trim()
+            );
             return fields.join('\t');
         }).join('\n');
         return headers + rows;
@@ -283,9 +360,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function convertToCSV(data) {
         if (data.length === 0) return '';
-        const headers = Object.keys(data[0]).join(',');
+        const headers = columnOrder.map(c => c.id).join(',');
         const rows = data.map(row => {
-            return Object.values(row).map(value => {
+            return columnOrder.map(col => {
+                const value = row[col.id] || '';
                 const str = String(value).replace(/"/g, '""');
                 return `"${str}"`;
             }).join(',');
