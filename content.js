@@ -25,6 +25,7 @@ function extractBusinessInfo() {
         hours: '',
         rating: '',
         reviewCount: '',
+        mapsUrl: window.location.href,
         timestamp: new Date().toISOString()
     };
 

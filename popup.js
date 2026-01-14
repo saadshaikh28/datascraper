@@ -81,10 +81,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response && response.success) {
                 lastItem.emails = response.data.emails.join(', ');
-                lastItem.socials = response.data.socials;
+                lastItem.webPhones = response.data.phones.join(', ');
+                lastItem.facebook = response.data.socials.facebook.join(', ');
+                lastItem.instagram = response.data.socials.instagram.join(', ');
+                lastItem.twitter = response.data.socials.twitter.join(', ');
+                lastItem.whatsapp = response.data.socials.whatsapp.join(', ');
+                lastItem.telegram = response.data.socials.telegram.join(', ');
+
                 saveData();
                 updateTable();
-                alert('Enrichment complete! Emails and socials added.');
+                alert('Enrichment complete!');
             } else {
                 alert('Enrichment failed: ' + (response.error || 'CORS or Timeout. Ensure host_permissions are active.'));
             }
@@ -149,6 +155,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>
+                    <a href="${item.mapsUrl || '#'}" target="_blank">Profile</a> 
+                    <button class="cell-copy-btn" data-value="${item.mapsUrl || ''}" title="Copy Link">📋</button>
+                </td>
+                <td>
                     ${item.name || '-'} 
                     <button class="cell-copy-btn" data-value="${item.name || ''}" title="Copy Name">📋</button>
                 </td>
@@ -177,12 +187,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button class="cell-copy-btn" data-value="${item.reviewCount || ''}" title="Copy Reviews">📋</button>
                 </td>
                 <td>
-                    <span title="${item.hours || ''}">${item.hours ? item.hours.substring(0, 20) + '...' : '-'}</span>
+                    <span title="${item.hours || ''}">${item.hours ? item.hours.substring(0, 15) + '...' : '-'}</span>
                     <button class="cell-copy-btn" data-value="${item.hours || ''}" title="Copy Hours">📋</button>
                 </td>
                 <td>
-                    <span title="${item.emails || ''}">${item.emails ? item.emails.substring(0, 20) + '...' : '-'}</span>
+                    <span title="${item.emails || ''}">${item.emails ? item.emails.substring(0, 15) + '...' : '-'}</span>
                     <button class="cell-copy-btn" data-value="${item.emails || ''}" title="Copy Emails">📋</button>
+                </td>
+                <td>
+                    <span title="${item.webPhones || ''}">${item.webPhones ? item.webPhones.substring(0, 15) + '...' : '-'}</span>
+                    <button class="cell-copy-btn" data-value="${item.webPhones || ''}" title="Copy Web Phone">📋</button>
+                </td>
+                <td>
+                    <button class="cell-copy-btn" data-value="${item.facebook || ''}" title="Copy FB">📋</button>
+                </td>
+                <td>
+                    <button class="cell-copy-btn" data-value="${item.instagram || ''}" title="Copy IG">📋</button>
+                </td>
+                <td>
+                    <button class="cell-copy-btn" data-value="${item.twitter || ''}" title="Copy X">📋</button>
+                </td>
+                <td>
+                    <button class="cell-copy-btn" data-value="${item.whatsapp || ''}" title="Copy WA">📋</button>
+                </td>
+                <td>
+                    <button class="cell-copy-btn" data-value="${item.telegram || ''}" title="Copy TG">📋</button>
                 </td>
                 <td class="action-cell">
                     <button class="row-copy-btn" data-index="${actualIndex}" title="Copy Full Row for Sheets">📋 Row</button>
@@ -214,8 +243,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const idx = e.target.getAttribute('data-index');
                 const item = currentData[idx];
                 const fields = [
-                    item.name, item.category, item.address, item.phone,
-                    item.website, item.rating, item.reviewCount, item.hours, item.emails
+                    item.mapsUrl, item.name, item.category, item.address, item.phone,
+                    item.website, item.rating, item.reviewCount, item.hours,
+                    item.emails, item.webPhones, item.facebook, item.instagram,
+                    item.twitter, item.whatsapp, item.telegram
                 ].map(val => String(val || '').replace(/\r?\n|\r/g, ' ').trim());
                 copyToClipboard(fields.join('\t'), e.target);
             });
@@ -226,18 +257,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function formatForSheets(data) {
-        const headers = 'Name\tCategory\tAddress\tPhone\tWebsite\tRating\tReviews\tHours\tEmails\n';
+        const headers = 'Maps Link\tName\tCategory\tAddress\tPhone\tWebsite\tRating\tReviews\tHours\tEmails\tWeb Phone\tFB\tIG\tX\tWA\tTG\n';
         const rows = data.map(item => {
             const fields = [
-                item.name,
-                item.category,
-                item.address,
-                item.phone,
-                item.website,
-                item.rating,
-                item.reviewCount,
-                item.hours,
-                item.emails
+                item.mapsUrl, item.name, item.category, item.address, item.phone,
+                item.website, item.rating, item.reviewCount, item.hours,
+                item.emails, item.webPhones, item.facebook, item.instagram,
+                item.twitter, item.whatsapp, item.telegram
             ].map(val => String(val || '').replace(/\r?\n|\r/g, ' ').trim());
             return fields.join('\t');
         }).join('\n');

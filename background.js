@@ -32,28 +32,38 @@ async function enrichBusinessData(url) {
         const response = await fetch(url);
         const html = await response.text();
 
-        // Simple regex for emails
+        // 1. Email Extraction
         const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
         const emails = Array.from(new Set(html.match(emailRegex) || []));
 
-        // Common social media patterns
-        const socials = {
-            facebook: html.match(/facebook\.com\/[a-zA-Z0-9._-]+/g) || [],
-            instagram: html.match(/instagram\.com\/[a-zA-Z0-9._-]+/g) || [],
-            linkedin: html.match(/linkedin\.com\/[a-z]{2,3}\/[a-zA-Z0-9._-]+/g) || [],
-            twitter: html.match(/(twitter\.x|x\.com)\/[a-zA-Z0-9._-]+/g) || []
+        // 2. Phone Number Extraction from Website (Regex for international formats)
+        const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
+        const websitePhones = Array.from(new Set(html.match(phoneRegex) || []))
+            .map(p => p.replace(/[^0-9]/g, ''));
+
+        // 3. Social Media & Messaging Links
+        const socialPatterns = {
+            facebook: /facebook\.com\/[a-zA-Z0-9._-]+/g,
+            instagram: /instagram\.com\/[a-zA-Z0-9._-]+/g,
+            linkedin: /linkedin\.com\/(?:company|in)\/[a-zA-Z0-9._-]+/g,
+            twitter: /(?:twitter\.com|x\.com)\/[a-zA-Z0-9._-]+/g,
+            whatsapp: /(?:wa\.me|api\.whatsapp\.com\/send\?phone=)(\d+)/g,
+            telegram: /(?:t\.me|telegram\.me)\/([a-zA-Z0-9._-]+)/g
         };
 
-        // Clean up social links
-        for (const platform in socials) {
-            socials[platform] = Array.from(new Set(socials[platform])).map(link => {
+        const socials = {};
+        for (const [platform, regex] of Object.entries(socialPatterns)) {
+            const matches = html.match(regex) || [];
+            socials[platform] = Array.from(new Set(matches)).map(link => {
+                if (platform === 'whatsapp' || platform === 'telegram') return link; // Keep raw match for these
                 if (!link.startsWith('http')) return 'https://' + link;
                 return link;
             });
         }
 
         return {
-            emails: emails.slice(0, 5), // Limit to top 5
+            emails: emails.slice(0, 5),
+            phones: websitePhones.slice(0, 3),
             socials: socials
         };
     } catch (error) {
