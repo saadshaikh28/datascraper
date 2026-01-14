@@ -203,6 +203,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             th.appendChild(btn);
 
+            // Resizer
+            const resizer = document.createElement('div');
+            resizer.className = 'resizer';
+            resizer.addEventListener('mousedown', initResize);
+            th.appendChild(resizer);
+
             // Drag events
             th.addEventListener('dragstart', handleDragStart);
             th.addEventListener('dragover', handleDragOver);
@@ -289,6 +295,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
             resultsTableBody.appendChild(tr);
         });
+    }
+
+    // Resizing Logic
+    function initResize(e) {
+        e.stopPropagation();
+        const th = e.target.parentElement;
+        const startX = e.pageX;
+        const startWidth = th.offsetWidth;
+
+        function startResizing(moveEvent) {
+            th.style.width = startWidth + (moveEvent.pageX - startX) + 'px';
+            th.style.minWidth = th.style.width;
+        }
+
+        function stopResizing() {
+            window.removeEventListener('mousemove', startResizing);
+            window.removeEventListener('mouseup', stopResizing);
+        }
+
+        window.addEventListener('mousemove', startResizing);
+        window.addEventListener('mouseup', stopResizing);
     }
 
     // Drag and Drop Logic
