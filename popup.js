@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Each column has a key (data property), label (display name), and optional render function
     let columnOrder = [
         { id: 'mapsUrl', label: 'Maps Link' },
+        { id: 'placeId', label: 'Place ID' },
         { id: 'name', label: 'Name' },
         { id: 'category', label: 'Category' },
         { id: 'address', label: 'Address' },

@@ -109,6 +109,24 @@ function extractBusinessInfo() {
             info.hours = hoursEl.innerText.trim().replace(/\n/g, '; ');
         }
 
+        // 8. Place ID (Unique Google Identifier)
+        try {
+            // Method 1: Data attributes
+            const pidEl = document.querySelector('[data-place-id]');
+            if (pidEl) {
+                info.placeId = pidEl.getAttribute('data-place-id');
+            }
+
+            // Method 2: Global scan for ChIJ pattern if method 1 fails
+            if (!info.placeId) {
+                const pageHtml = document.documentElement.innerHTML;
+                const pidMatch = pageHtml.match(/ChIJ[a-zA-Z0-9_-]{23}/);
+                if (pidMatch) info.placeId = pidMatch[0];
+            }
+        } catch (e) {
+            console.error('[G-Maps Organizer] Place ID extraction error:', e);
+        }
+
     } catch (error) {
         console.error('[G-Maps Organizer] Error during extraction:', error);
     }
