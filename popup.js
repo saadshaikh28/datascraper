@@ -4,6 +4,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     const extractBtn = document.getElementById('extractBtn');
+    const extractEnrichBtn = document.getElementById('extractEnrichBtn');
     const enrichBtn = document.getElementById('enrichBtn');
     const copyBtn = document.getElementById('copyBtn');
     const csvBtn = document.getElementById('csvBtn');
@@ -16,7 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentData = [];
 
     // Initial Column Configuration
-    // Each column has a key (data property), label (display name), and optional render function
     let columnOrder = [
         { id: 'mapsUrl', label: 'Maps Link' },
         { id: 'placeId', label: 'Place ID' },
@@ -46,14 +46,12 @@ document.addEventListener('DOMContentLoaded', () => {
             currentData = result.businessData;
         }
         if (result.columnOrder) {
-            // Reconstruct columnOrder based on saved IDs to maintain structure/renders
             const savedOrder = result.columnOrder;
             const newOrder = [];
             savedOrder.forEach(id => {
                 const col = columnOrder.find(c => c.id === id);
                 if (col) newOrder.push(col);
             });
-            // Add any missing columns (e.g. if we added new fields in a code update)
             columnOrder.forEach(col => {
                 if (!newOrder.find(c => c.id === col.id)) newOrder.push(col);
             });
@@ -62,75 +60,111 @@ document.addEventListener('DOMContentLoaded', () => {
         updateTable();
     });
 
-    // Extract Info Button
-    extractBtn.addEventListener('click', async () => {
+    // Helper: Find Google Maps Tab
+    async function getMapsTab() {
         const tabs = await chrome.tabs.query({ url: "*://www.google.com/maps/*" });
-        const mapTab = tabs.find(t => t.url.includes('/maps/place/'));
+        return tabs.find(t => t.url.includes('/maps/place/'));
+    }
 
+    // Extraction Logic
+    async function performExtraction(silent = false) {
+        const mapTab = await getMapsTab();
         if (!mapTab) {
-            alert('Please ensure a Google Maps business profile is open in another tab.');
-            return;
+            if (!silent) alert('Please ensure a Google Maps business profile is open in another tab.');
+            return null;
         }
 
-        chrome.tabs.sendMessage(mapTab.id, { action: 'extractData' }, (response) => {
-            if (response && response.data) {
-                if (response.data.name) {
-                    const isDuplicate = currentData.some(item =>
-                        item.name === response.data.name && item.address === response.data.address
-                    );
+        return new Promise((resolve) => {
+            chrome.tabs.sendMessage(mapTab.id, { action: 'extractData' }, (response) => {
+                if (response && response.data) {
+                    if (response.data.name) {
+                        const isDuplicate = currentData.some(item =>
+                            item.name === response.data.name && item.address === response.data.address
+                        );
 
-                    if (!isDuplicate) {
-                        currentData.push(response.data);
-                        saveData();
-                        updateTable();
+                        if (!isDuplicate) {
+                            currentData.push(response.data);
+                            saveData();
+                            updateTable();
+                            resolve(response.data);
+                        } else {
+                            if (!silent) alert('This business is already in your list.');
+                            resolve(null);
+                        }
                     } else {
-                        alert('This business is already in your list.');
+                        if (!silent) alert('Could not extract data. Ensure you are on a business profile page.');
+                        resolve(null);
                     }
                 } else {
-                    alert('Could not extract data. Ensure you are on a business profile page.');
+                    if (!silent) alert('No response from page. Try refreshing the Google Maps tab.');
+                    resolve(null);
                 }
-            } else {
-                alert('No response from page. Try refreshing the Google Maps tab.');
-            }
+            });
         });
-    });
+    }
 
-    // Enrich Button
-    enrichBtn.addEventListener('click', async () => {
-        if (currentData.length === 0) return;
-
-        enrichBtn.disabled = true;
-        enrichBtn.innerText = 'Enriching...';
-
-        const lastItem = currentData[currentData.length - 1];
-
-        if (!lastItem.website || lastItem.website === '-') {
-            alert('No website found for the latest business.');
-            enrichBtn.disabled = false;
-            enrichBtn.innerText = 'Enrich from Website';
+    // Enrichment Logic
+    async function performEnrichment(item, silent = false) {
+        if (!item || !item.website || item.website === '-') {
+            if (!silent) alert('No website found to enrich.');
             return;
         }
 
-        chrome.runtime.sendMessage({ action: 'enrichData', url: lastItem.website }, (response) => {
-            enrichBtn.disabled = false;
-            enrichBtn.innerText = 'Enrich from Website';
+        if (!silent) {
+            enrichBtn.disabled = true;
+            enrichBtn.innerText = 'Enriching...';
+        }
 
-            if (response && response.success) {
-                lastItem.emails = response.data.emails.join(', ');
-                lastItem.webPhones = response.data.phones.join(', ');
-                lastItem.facebook = response.data.socials.facebook.join(', ');
-                lastItem.instagram = response.data.socials.instagram.join(', ');
-                lastItem.twitter = response.data.socials.twitter.join(', ');
-                lastItem.whatsapp = response.data.socials.whatsapp.join(', ');
-                lastItem.telegram = response.data.socials.telegram.join(', ');
+        return new Promise((resolve) => {
+            chrome.runtime.sendMessage({ action: 'enrichData', url: item.website }, (response) => {
+                if (!silent) {
+                    enrichBtn.disabled = false;
+                    enrichBtn.innerText = 'Enrich Latest';
+                }
 
-                saveData();
-                updateTable();
-                alert('Enrichment complete!');
-            } else {
-                alert('Enrichment failed: ' + (response.error || 'CORS or Timeout. Ensure host_permissions are active.'));
-            }
+                if (response && response.success) {
+                    item.emails = response.data.emails.join(', ');
+                    item.webPhones = response.data.phones.join(', ');
+                    item.facebook = (response.data.socials.facebook || []).join(', ');
+                    item.instagram = (response.data.socials.instagram || []).join(', ');
+                    item.twitter = (response.data.socials.twitter || []).join(', ');
+                    item.whatsapp = (response.data.socials.whatsapp || []).join(', ');
+                    item.telegram = (response.data.socials.telegram || []).join(', ');
+
+                    saveData();
+                    updateTable();
+                    if (!silent) alert('Enrichment complete!');
+                } else {
+                    if (!silent) alert('Enrichment failed: ' + (response.error || 'Check console'));
+                }
+                resolve();
+            });
         });
+    }
+
+    // Extract Only Button
+    extractBtn.addEventListener('click', () => performExtraction(false));
+
+    // Extract and Enrich Button (Silent)
+    extractEnrichBtn.addEventListener('click', async () => {
+        extractEnrichBtn.disabled = true;
+        const btnText = extractEnrichBtn.innerText;
+        extractEnrichBtn.innerText = 'Processing...';
+
+        const data = await performExtraction(true);
+        if (data) {
+            await performEnrichment(data, true);
+        }
+
+        extractEnrichBtn.disabled = false;
+        extractEnrichBtn.innerText = btnText;
+    });
+
+    // Enrich Latest Button
+    enrichBtn.addEventListener('click', () => {
+        if (currentData.length > 0) {
+            performEnrichment(currentData[currentData.length - 1], false);
+        }
     });
 
     // Copy All Button
@@ -140,14 +174,13 @@ document.addEventListener('DOMContentLoaded', () => {
         copyToClipboard(text, copyBtn);
     });
 
-    // CSV Export
+    // CSV/XLSX/Clear listeners stay same...
     csvBtn.addEventListener('click', () => {
         if (currentData.length === 0) return;
         const csv = convertToCSV(currentData);
         downloadFile(csv, 'gmaps_export.csv', 'text/csv');
     });
 
-    // XLSX Export
     xlsxBtn.addEventListener('click', () => {
         if (currentData.length === 0) return;
         if (typeof XLSX === 'undefined') {
@@ -160,7 +193,6 @@ document.addEventListener('DOMContentLoaded', () => {
         XLSX.writeFile(workbook, "gmaps_export.xlsx");
     });
 
-    // Clear All
     clearBtn.addEventListener('click', () => {
         if (confirm('Are you sure you want to clear all data?')) {
             currentData = [];
@@ -204,13 +236,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             th.appendChild(btn);
 
-            // Resizer
             const resizer = document.createElement('div');
             resizer.className = 'resizer';
             resizer.addEventListener('mousedown', initResize);
             th.appendChild(resizer);
 
-            // Drag events
             th.addEventListener('dragstart', handleDragStart);
             th.addEventListener('dragover', handleDragOver);
             th.addEventListener('dragenter', handleDragEnter);
@@ -221,7 +251,6 @@ document.addEventListener('DOMContentLoaded', () => {
             tableHeader.appendChild(th);
         });
 
-        // Fixed Actions column
         const actionsTh = document.createElement('th');
         actionsTh.innerText = 'Actions';
         tableHeader.appendChild(actionsTh);
@@ -237,7 +266,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const td = document.createElement('td');
                 const value = item[col.id] || '';
 
-                // Custom Rendering for specific columns
                 if (col.id === 'mapsUrl') {
                     td.innerHTML = `<a href="${value || '#'}" target="_blank">Profile</a> `;
                 } else if (col.id === 'website') {
@@ -260,7 +288,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 tr.appendChild(td);
             });
 
-            // Action Column
             const actionTd = document.createElement('td');
             actionTd.className = 'action-cell';
 
@@ -298,7 +325,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Resizing Logic
     function initResize(e) {
         e.stopPropagation();
         const th = e.target.parentElement;
@@ -319,7 +345,6 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('mouseup', stopResizing);
     }
 
-    // Drag and Drop Logic
     function handleDragStart(e) {
         draggedColumnId = this.dataset.id;
         this.classList.add('dragging');
