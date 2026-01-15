@@ -1,5 +1,5 @@
 /**
- * content.js - Robust Version
+ * content.js - Robust Scoped Version
  */
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -25,60 +25,74 @@ function extractBusinessInfo() {
         hours: '',
         rating: '',
         reviewCount: '',
+        placeId: '',
         mapsUrl: window.location.href,
         timestamp: new Date().toISOString()
     };
 
     try {
-        // 1. Business Name - Most reliable is the single H1 or the specific class
+        // 0. Identify the Active Detail Pane
+        // We look for the main H1 which is the business name.
         const nameEl = document.querySelector('h1.DUwDvf') || document.querySelector('h1');
-        if (nameEl) info.name = nameEl.innerText.trim();
+        if (!nameEl) {
+            console.warn('[G-Maps Organizer] No Business Name found. Ensure a profile is open.');
+            return info;
+        }
 
-        // 2. Primary Category
-        const categoryEl = document.querySelector('button.DqE26') ||
-            document.querySelector('button[jsaction*="category"]');
+        info.name = nameEl.innerText.trim();
+
+        // Lock search to the specific sidebar container holding this business
+        // This prevents grabbing data from the search result list on the left.
+        const detailPane = nameEl.closest('div[role="main"]') ||
+            nameEl.closest('.m67pLc') ||
+            nameEl.closest('.bJz19') ||
+            document.body;
+
+        console.log('[G-Maps Organizer] Scoping extraction to container:', detailPane);
+
+        // 1. Primary Category
+        const categoryEl = detailPane.querySelector('button.DqE26') ||
+            detailPane.querySelector('button[jsaction*="category"]');
         if (categoryEl) info.category = categoryEl.innerText.trim();
 
-        // 3. Address
-        const addressEl = document.querySelector('button[data-item-id="address"]') ||
-            document.querySelector('div[aria-label*="Address"]');
+        // 2. Address
+        const addressEl = detailPane.querySelector('button[data-item-id="address"]') ||
+            detailPane.querySelector('div[aria-label*="Address"]');
         if (addressEl) info.address = addressEl.innerText.trim();
 
-        // 4. Phone Number
-        const phoneEl = document.querySelector('button[data-item-id*="phone:tel:"]') ||
-            document.querySelector('button[aria-label*="Phone"]');
+        // 3. Phone Number
+        const phoneEl = detailPane.querySelector('button[data-item-id*="phone:tel:"]') ||
+            detailPane.querySelector('button[aria-label*="Phone"]');
         if (phoneEl) {
             info.phone = formatPhoneNumber(phoneEl.innerText.trim());
         }
 
-        // 5. Website URL
-        const websiteEl = document.querySelector('a[data-item-id="authority"]') ||
-            document.querySelector('a[aria-label*="Website"]');
+        // 4. Website URL
+        const websiteEl = detailPane.querySelector('a[data-item-id="authority"]') ||
+            detailPane.querySelector('a[aria-label*="Website"]');
         if (websiteEl) info.website = websiteEl.href;
 
-        // 6. Rating and Review Count
+        // 5. Rating and Review Count
         try {
-            // Method A: Look for the consolidated stats container
-            const statsContainer = document.querySelector('div.F7kYv') ||
-                document.querySelector('span.fontBodyMedium') ||
-                document.querySelector('div.fontBodyMedium');
+            // Priority 1: Consolidated stats container (e.g. "4.5 (1,234 reviews)")
+            const statsContainer = detailPane.querySelector('div.F7kYv') ||
+                detailPane.querySelector('span.fontBodyMedium') ||
+                detailPane.querySelector('div.fontBodyMedium');
 
             if (statsContainer) {
                 const text = statsContainer.innerText || statsContainer.getAttribute('aria-label') || '';
-                // Rating: Look for 4.5 or 4,5
                 const ratingMatch = text.match(/(\d[.,]\d)/);
                 if (ratingMatch) info.rating = ratingMatch[1].replace(',', '.');
 
-                // Reviews: Look for numbers in parentheses like (1,234) or followed by "reviews"
                 const reviewsMatch = text.match(/\(([\d,.]+)\)/) || text.match(/([\d,.]+)\s*reviews/i);
                 if (reviewsMatch) info.reviewCount = reviewsMatch[1].replace(/[^0-9]/g, '');
             }
 
-            // Method B: Fallback to specific elements if Method A missed something
+            // Fallback for Rating
             if (!info.rating) {
-                const ratingEl = document.querySelector('span.ceNzR[aria-label*="stars"]') ||
-                    document.querySelector('span[aria-label*="stars"]') ||
-                    document.querySelector('span.MW4v7d');
+                const ratingEl = detailPane.querySelector('span.ceNzR[aria-label*="stars"]') ||
+                    detailPane.querySelector('span[aria-label*="stars"]') ||
+                    detailPane.querySelector('span.MW4v7d');
                 if (ratingEl) {
                     const label = ratingEl.getAttribute('aria-label') || ratingEl.innerText;
                     const match = label.match(/(\d[.,]\d)/) || label.match(/(\d)/);
@@ -86,11 +100,11 @@ function extractBusinessInfo() {
                 }
             }
 
+            // Fallback for Review Count
             if (!info.reviewCount) {
-                const reviewsEl = document.querySelector('button[aria-label*="reviews"]') ||
-                    document.querySelector('span[aria-label*="reviews"]') ||
-                    document.querySelector('span.a09hYc') ||
-                    document.querySelector('span.fontBodyMedium span:last-child');
+                const reviewsEl = detailPane.querySelector('button[aria-label*="reviews"]') ||
+                    detailPane.querySelector('span[aria-label*="reviews"]') ||
+                    detailPane.querySelector('span.a09hYc');
                 if (reviewsEl) {
                     const label = reviewsEl.getAttribute('aria-label') || reviewsEl.innerText;
                     const count = label.replace(/[^0-9]/g, '');
@@ -101,63 +115,48 @@ function extractBusinessInfo() {
             console.error('[G-Maps Organizer] Rating/Review extraction error:', e);
         }
 
-        // 7. Opening Hours
-        const hoursEl = document.querySelector('div[jsaction*="hours"]') ||
-            document.querySelector('div[aria-label*="Hours"]') ||
-            document.querySelector('table.eKjh9c');
+        // 6. Opening Hours
+        const hoursEl = detailPane.querySelector('div[jsaction*="hours"]') ||
+            detailPane.querySelector('div[aria-label*="Hours"]') ||
+            detailPane.querySelector('table.eKjh9c');
         if (hoursEl) {
             info.hours = hoursEl.innerText.trim().replace(/\n/g, '; ');
         }
 
-        // 8. Place ID (Unique Google Identifier)
+        // 7. Place ID (Unique Google Identifier)
         try {
-            // Strict Scope: Only look within the container that holds the Business Name.
-            // This prevents grabbing IDs from the search result list on the left.
-            const titleEl = document.querySelector('h1.DUwDvf') || document.querySelector('h1');
+            // Method 1: Check for "Share" button
+            const shareBtn = detailPane.querySelector('button[data-value="Share"]') ||
+                detailPane.querySelector('button[aria-label*="Share"]') ||
+                detailPane.querySelector('button[data-tooltip="Share"]');
 
-            if (titleEl) {
-                // Find the specific container for the detail view
-                const detailPane = titleEl.closest('div[role="main"]') ||
-                    titleEl.closest('.m67pLc') ||
-                    titleEl.closest('.bJz19');
+            if (shareBtn) {
+                const pid = shareBtn.getAttribute('data-place-id');
+                if (pid && pid.startsWith('ChIJ')) info.placeId = pid;
+            }
 
-                if (detailPane) {
-                    // Method 1: Check for "Share" button (Most reliable source of correct PID)
-                    const shareBtn = detailPane.querySelector('button[data-value="Share"]') ||
-                        detailPane.querySelector('button[aria-label*="Share"]') ||
-                        detailPane.querySelector('button[data-tooltip="Share"]');
-
-                    if (shareBtn) {
-                        const pid = shareBtn.getAttribute('data-place-id');
-                        if (pid && pid.startsWith('ChIJ')) info.placeId = pid;
-                    }
-
-                    // Method 2: Check for "Review" button inside this pane
-                    if (!info.placeId) {
-                        const reviewBtn = detailPane.querySelector('button[jsaction*="review"]');
-                        if (reviewBtn) {
-                            const pid = reviewBtn.getAttribute('data-place-id');
-                            if (pid && pid.startsWith('ChIJ')) info.placeId = pid;
-                        }
-                    }
-
-                    // Method 3: Check for "Suggest an Edit"
-                    if (!info.placeId) {
-                        const editBtn = detailPane.querySelector('button[jsaction*="suggestedits"]');
-                        if (editBtn) {
-                            const pid = editBtn.getAttribute('data-place-id');
-                            if (pid && pid.startsWith('ChIJ')) info.placeId = pid;
-                        }
-                    }
-
-                    // Method 4: Check if URL matches the name we found (Only if tab is purely for this business)
-                    if (!info.placeId) {
-                        const urlMatch = window.location.href.match(/!1s(ChIJ[a-zA-Z0-9_-]{23})/);
-                        if (urlMatch && document.title.includes(info.name)) {
-                            info.placeId = urlMatch[1];
-                        }
-                    }
+            // Method 2: Check for "Review" button
+            if (!info.placeId) {
+                const reviewBtn = detailPane.querySelector('button[jsaction*="review"]');
+                if (reviewBtn) {
+                    const pid = reviewBtn.getAttribute('data-place-id');
+                    if (pid && pid.startsWith('ChIJ')) info.placeId = pid;
                 }
+            }
+
+            // Method 3: URL Pattern (Failsafe)
+            if (!info.placeId) {
+                const urlMatch = window.location.href.match(/!1s(ChIJ[a-zA-Z0-9_-]{23})/);
+                // Check if the page title roughly matches the business name we extracted
+                if (urlMatch && document.title.toLowerCase().includes(info.name.toLowerCase().substring(0, 5))) {
+                    info.placeId = urlMatch[1];
+                }
+            }
+
+            // Final Failsafe: Deep Scan innerHTML of ONLY the detail pane
+            if (!info.placeId && detailPane !== document.body) {
+                const match = detailPane.innerHTML.match(/ChIJ[a-zA-Z0-9_-]{23}/);
+                if (match) info.placeId = match[0];
             }
         } catch (e) {
             console.error('[G-Maps Organizer] Place ID extraction error:', e);
@@ -167,7 +166,7 @@ function extractBusinessInfo() {
         console.error('[G-Maps Organizer] Error during extraction:', error);
     }
 
-    // Final Sanitization: Remove all newlines within fields to prevent Google Sheets row splitting
+    // Final Sanitization: Remove all newlines within fields
     for (let key in info) {
         if (typeof info[key] === 'string' && key !== 'timestamp') {
             info[key] = info[key].replace(/\r?\n|\r/g, ' ').trim();
@@ -181,8 +180,5 @@ function extractBusinessInfo() {
  * Helper to strip country code and format for Excel/Google Sheets.
  */
 function formatPhoneNumber(phone) {
-    // Remove all non-numeric characters (removes +, -, spaces, etc.)
-    // Keeping only digits ensures the country code is included without the "+" 
-    // leading to formula errors in Google Sheets.
     return phone.replace(/[^0-9]/g, '');
 }
