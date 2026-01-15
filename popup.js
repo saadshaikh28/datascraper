@@ -217,6 +217,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderHeader() {
         tableHeader.innerHTML = '';
+
+        const actionsTh = document.createElement('th');
+        actionsTh.innerText = 'Actions';
+        tableHeader.appendChild(actionsTh);
+
         columnOrder.forEach(col => {
             const th = document.createElement('th');
             th.innerText = col.label + ' ';
@@ -250,10 +255,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             tableHeader.appendChild(th);
         });
-
-        const actionsTh = document.createElement('th');
-        actionsTh.innerText = 'Actions';
-        tableHeader.appendChild(actionsTh);
     }
 
     function renderRows() {
@@ -262,6 +263,65 @@ document.addEventListener('DOMContentLoaded', () => {
             const actualIndex = currentData.length - 1 - index;
             const tr = document.createElement('tr');
 
+            // 1. Actions Column (First)
+            const actionTd = document.createElement('td');
+            actionTd.className = 'action-cell';
+            actionTd.style.minWidth = '140px';
+
+            // Enrich Button
+            const enrichRowBtn = document.createElement('button');
+            enrichRowBtn.className = 'row-enrich-btn';
+            enrichRowBtn.title = 'Enrich this row';
+            enrichRowBtn.innerText = '⚡';
+            enrichRowBtn.style.marginRight = '8px';
+            if (!item.website || item.website === '-') {
+                enrichRowBtn.disabled = true;
+                enrichRowBtn.style.opacity = '0.5';
+            } else {
+                enrichRowBtn.addEventListener('click', () => {
+                    enrichRowBtn.innerText = '⏳';
+                    performEnrichment(item, false).then(() => {
+                        enrichRowBtn.innerText = '✅';
+                        setTimeout(() => enrichRowBtn.innerText = '⚡', 2000);
+                    });
+                });
+            }
+
+            // Copy Row Button
+            const rowCopyBtn = document.createElement('button');
+            rowCopyBtn.className = 'row-copy-btn';
+            rowCopyBtn.dataset.index = actualIndex;
+            rowCopyBtn.title = 'Copy Full Row';
+            rowCopyBtn.innerText = '📋';
+            rowCopyBtn.style.marginRight = '8px';
+            rowCopyBtn.addEventListener('click', (e) => {
+                const idx = e.target.dataset.index;
+                const item = currentData[idx];
+                const fields = columnOrder.map(col =>
+                    String(item[col.id] || '').replace(/\r?\n|\r/g, ' ').trim()
+                );
+                copyToClipboard(fields.join('\t'), e.target);
+            });
+
+            // Delete Button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.dataset.index = actualIndex;
+            deleteBtn.title = 'Delete Record';
+            deleteBtn.innerText = '×';
+            deleteBtn.addEventListener('click', (e) => {
+                const idx = e.target.dataset.index;
+                currentData.splice(idx, 1);
+                saveData();
+                updateTable();
+            });
+
+            actionTd.appendChild(enrichRowBtn);
+            actionTd.appendChild(rowCopyBtn);
+            actionTd.appendChild(deleteBtn);
+            tr.appendChild(actionTd);
+
+            // 2. Data Columns
             columnOrder.forEach(col => {
                 const td = document.createElement('td');
                 const value = item[col.id] || '';
@@ -288,42 +348,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 tr.appendChild(td);
             });
 
-            const actionTd = document.createElement('td');
-            actionTd.className = 'action-cell';
-
-            const rowCopyBtn = document.createElement('button');
-            rowCopyBtn.className = 'row-copy-btn';
-            rowCopyBtn.dataset.index = actualIndex;
-            rowCopyBtn.title = 'Copy Full Row for Sheets';
-            rowCopyBtn.innerText = '📋 Row';
-            rowCopyBtn.addEventListener('click', (e) => {
-                const idx = e.target.dataset.index;
-                const item = currentData[idx];
-                const fields = columnOrder.map(col =>
-                    String(item[col.id] || '').replace(/\r?\n|\r/g, ' ').trim()
-                );
-                copyToClipboard(fields.join('\t'), e.target);
-            });
-
-            const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'delete-btn';
-            deleteBtn.dataset.index = actualIndex;
-            deleteBtn.title = 'Delete Record';
-            deleteBtn.innerText = '×';
-            deleteBtn.addEventListener('click', (e) => {
-                const idx = e.target.dataset.index;
-                currentData.splice(idx, 1);
-                saveData();
-                updateTable();
-            });
-
-            actionTd.appendChild(rowCopyBtn);
-            actionTd.appendChild(deleteBtn);
-            tr.appendChild(actionTd);
-
             resultsTableBody.appendChild(tr);
         });
     }
+
+
 
     function initResize(e) {
         e.stopPropagation();
