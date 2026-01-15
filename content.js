@@ -109,50 +109,55 @@ function extractBusinessInfo() {
             info.hours = hoursEl.innerText.trim().replace(/\n/g, '; ');
         }
 
-        // 8. Place ID (Unique Google Identifier) - Highly Robust "Deep Scan"
+        // 8. Place ID (Unique Google Identifier)
         try {
-            // Priority 1: Direct URL Sniffer (Fastest & Usually Correct for open profiles)
-            const urlPid = window.location.href.match(/!1s(ChIJ[a-zA-Z0-9_-]{23})/) ||
-                window.location.href.match(/placeid=(ChIJ[a-zA-Z0-9_-]{23})/) ||
-                window.location.href.match(/pb=!1m2!1m1!1s(ChIJ[a-zA-Z0-9_-]{23})/);
-            if (urlPid) info.placeId = urlPid[1];
+            // Strict Scope: Only look within the container that holds the Business Name.
+            // This prevents grabbing IDs from the search result list on the left.
+            const titleEl = document.querySelector('h1.DUwDvf') || document.querySelector('h1');
 
-            // Priority 2: Script Blob Analysis (ChatGPT Recommended: Scans initialization states)
-            if (!info.placeId) {
-                const scripts = Array.from(document.getElementsByTagName('script'));
-                for (const script of scripts) {
-                    const content = script.textContent;
-                    if (content.includes('ChIJ')) {
-                        // Look for specific place_id JSON keys or raw signatures
-                        const scriptMatch = content.match(/"place_id":"(ChIJ[a-zA-Z0-9_-]{23})"/i) ||
-                            content.match(/\\"(ChIJ[a-zA-Z0-9_-]{23})\\"/i) ||
-                            content.match(/(ChIJ[a-zA-Z0-9_-]{23})/);
-                        if (scriptMatch) {
-                            info.placeId = scriptMatch[1] || scriptMatch[0];
-                            break;
+            if (titleEl) {
+                // Find the specific container for the detail view
+                const detailPane = titleEl.closest('div[role="main"]') ||
+                    titleEl.closest('.m67pLc') ||
+                    titleEl.closest('.bJz19');
+
+                if (detailPane) {
+                    // Method 1: Check for "Share" button (Most reliable source of correct PID)
+                    const shareBtn = detailPane.querySelector('button[data-value="Share"]') ||
+                        detailPane.querySelector('button[aria-label*="Share"]') ||
+                        detailPane.querySelector('button[data-tooltip="Share"]');
+
+                    if (shareBtn) {
+                        const pid = shareBtn.getAttribute('data-place-id');
+                        if (pid && pid.startsWith('ChIJ')) info.placeId = pid;
+                    }
+
+                    // Method 2: Check for "Review" button inside this pane
+                    if (!info.placeId) {
+                        const reviewBtn = detailPane.querySelector('button[jsaction*="review"]');
+                        if (reviewBtn) {
+                            const pid = reviewBtn.getAttribute('data-place-id');
+                            if (pid && pid.startsWith('ChIJ')) info.placeId = pid;
+                        }
+                    }
+
+                    // Method 3: Check for "Suggest an Edit"
+                    if (!info.placeId) {
+                        const editBtn = detailPane.querySelector('button[jsaction*="suggestedits"]');
+                        if (editBtn) {
+                            const pid = editBtn.getAttribute('data-place-id');
+                            if (pid && pid.startsWith('ChIJ')) info.placeId = pid;
+                        }
+                    }
+
+                    // Method 4: Check if URL matches the name we found (Only if tab is purely for this business)
+                    if (!info.placeId) {
+                        const urlMatch = window.location.href.match(/!1s(ChIJ[a-zA-Z0-9_-]{23})/);
+                        if (urlMatch && document.title.includes(info.name)) {
+                            info.placeId = urlMatch[1];
                         }
                     }
                 }
-            }
-
-            // Priority 3: DOM-Scoped Deep Scan (Active Detail Pane)
-            if (!info.placeId) {
-                const titleEl = document.querySelector('h1.DUwDvf') || document.querySelector('h1');
-                if (titleEl) {
-                    const detailPane = titleEl.closest('div[role="main"]') ||
-                        titleEl.closest('.m67pLc') ||
-                        titleEl.closest('.bJz19') ||
-                        document.body;
-
-                    const paneMatch = detailPane.innerHTML.match(/ChIJ[a-zA-Z0-9_-]{23}/);
-                    if (paneMatch) info.placeId = paneMatch[0];
-                }
-            }
-
-            // Final Failsafe: Global Pattern Match
-            if (!info.placeId) {
-                const globalMatch = document.documentElement.innerHTML.match(/ChIJ[a-zA-Z0-9_-]{23}/);
-                if (globalMatch) info.placeId = globalMatch[0];
             }
         } catch (e) {
             console.error('[G-Maps Organizer] Place ID extraction error:', e);
