@@ -109,47 +109,50 @@ function extractBusinessInfo() {
             info.hours = hoursEl.innerText.trim().replace(/\n/g, '; ');
         }
 
-        // 8. Place ID (Unique Google Identifier)
+        // 8. Place ID (Unique Google Identifier) - Highly Robust "Deep Scan"
         try {
-            // Priority 1: Search in URL (often found in !1s prefix)
-            // This is very reliable when a place is fully 'opened'
-            const urlMatch = window.location.href.match(/!1s(ChIJ[a-zA-Z0-9_-]{23})/);
-            if (urlMatch) {
-                info.placeId = urlMatch[1];
+            // Priority 1: Direct URL Sniffer (Fastest & Usually Correct for open profiles)
+            const urlPid = window.location.href.match(/!1s(ChIJ[a-zA-Z0-9_-]{23})/) ||
+                window.location.href.match(/placeid=(ChIJ[a-zA-Z0-9_-]{23})/) ||
+                window.location.href.match(/pb=!1m2!1m1!1s(ChIJ[a-zA-Z0-9_-]{23})/);
+            if (urlPid) info.placeId = urlPid[1];
+
+            // Priority 2: Script Blob Analysis (ChatGPT Recommended: Scans initialization states)
+            if (!info.placeId) {
+                const scripts = Array.from(document.getElementsByTagName('script'));
+                for (const script of scripts) {
+                    const content = script.textContent;
+                    if (content.includes('ChIJ')) {
+                        // Look for specific place_id JSON keys or raw signatures
+                        const scriptMatch = content.match(/"place_id":"(ChIJ[a-zA-Z0-9_-]{23})"/i) ||
+                            content.match(/\\"(ChIJ[a-zA-Z0-9_-]{23})\\"/i) ||
+                            content.match(/(ChIJ[a-zA-Z0-9_-]{23})/);
+                        if (scriptMatch) {
+                            info.placeId = scriptMatch[1] || scriptMatch[0];
+                            break;
+                        }
+                    }
+                }
             }
 
-            // Priority 2: Detail Pane Scoping (Context-Locked)
+            // Priority 3: DOM-Scoped Deep Scan (Active Detail Pane)
             if (!info.placeId) {
                 const titleEl = document.querySelector('h1.DUwDvf') || document.querySelector('h1');
                 if (titleEl) {
-                    // Lock search to the specific sidebar container holding this business
                     const detailPane = titleEl.closest('div[role="main"]') ||
                         titleEl.closest('.m67pLc') ||
                         titleEl.closest('.bJz19') ||
                         document.body;
 
-                    // Target buttons that MUST have the specific ID for functionality
-                    const specificEl = detailPane.querySelector('button[jsaction*="suggestedits"]') ||
-                        detailPane.querySelector('button[aria-label*="Share"]') ||
-                        detailPane.querySelector('button[data-tooltip="Share"]');
-
-                    if (specificEl) {
-                        const pid = specificEl.getAttribute('data-place-id');
-                        if (pid && pid.startsWith('ChIJ')) {
-                            info.placeId = pid;
-                        } else {
-                            // Extract ChIJ from the element's inner/outer HTML (metadata)
-                            const match = specificEl.outerHTML.match(/ChIJ[a-zA-Z0-9_-]{23}/);
-                            if (match) info.placeId = match[0];
-                        }
-                    }
-
-                    // Failsafe: Scan only the detail pane boundaries
-                    if (!info.placeId && detailPane !== document.body) {
-                        const pidMatch = detailPane.innerHTML.match(/ChIJ[a-zA-Z0-9_-]{23}/);
-                        if (pidMatch) info.placeId = pidMatch[0];
-                    }
+                    const paneMatch = detailPane.innerHTML.match(/ChIJ[a-zA-Z0-9_-]{23}/);
+                    if (paneMatch) info.placeId = paneMatch[0];
                 }
+            }
+
+            // Final Failsafe: Global Pattern Match
+            if (!info.placeId) {
+                const globalMatch = document.documentElement.innerHTML.match(/ChIJ[a-zA-Z0-9_-]{23}/);
+                if (globalMatch) info.placeId = globalMatch[0];
             }
         } catch (e) {
             console.error('[G-Maps Organizer] Place ID extraction error:', e);
