@@ -9,10 +9,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         console.log('[G-Maps Organizer] Extracted Data:', data);
         sendResponse({ data: data });
     } else if (request.action === 'clickNext') {
-        const success = clickResultByIndex(request.index);
-        sendResponse({ success });
+        const result = clickResultByIndex(request.index);
+        sendResponse(result);
     } else if (request.action === 'checkProfileLoaded') {
-        const isLoaded = !!(document.querySelector('h1.DUwDvf') || document.querySelector('h1'));
+        const isLoaded = isProfileLoaded(request.expectedName || '');
         sendResponse({ isLoaded });
     }
     return true; // Keep channel open
@@ -183,10 +183,8 @@ function extractBusinessInfo() {
 }
 
 function clickResultByIndex(index) {
-    // Aggressive list discovery
     const selectors = ['a.hfpxzc', '[role="article"] a', 'a[href*="/maps/place/"]'];
     let resultItems = [];
-
     for (const sel of selectors) {
         const items = document.querySelectorAll(sel);
         if (items.length > 0) {
@@ -195,21 +193,31 @@ function clickResultByIndex(index) {
         }
     }
 
-    console.log(`[G-Maps Organizer] Auto-Sequence: Found ${resultItems.length} results. Trying index ${index}`);
-
     if (resultItems.length > index) {
         const target = resultItems[index];
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const name = target.getAttribute('aria-label') || target.innerText || '';
 
-        // Give it a moment to scroll
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
         setTimeout(() => {
             target.focus();
             target.click();
         }, 600);
 
-        return true;
+        return { success: true, name: name.trim() };
     }
-    return false;
+    return { success: false };
+}
+
+function isProfileLoaded(expectedName) {
+    const titleEl = document.querySelector('h1.DUwDvf') || document.querySelector('h1');
+    if (!titleEl) return false;
+
+    const currentName = titleEl.innerText.trim().toLowerCase();
+    const targetName = expectedName.toLowerCase();
+
+    // Check if the current H1 contains the expected name (or vice versa)
+    // This is more robust than exact match because labels often include " · Website" etc.
+    return currentName.includes(targetName) || targetName.includes(currentName);
 }
 
 /**

@@ -192,14 +192,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
                 }
 
-                // 2. Wait for profile to load (human-like delay)
-                await sleep(4000);
+                // 2. Smart Wait for profile to load (up to 12 seconds)
+                let isLoaded = false;
+                for (let i = 0; i < 24; i++) { // 24 * 500ms = 12s
+                    if (!isAutoActive) break;
+                    await sleep(500);
+                    const check = await new Promise(r =>
+                        chrome.tabs.sendMessage(mapTab.id, {
+                            action: 'checkProfileLoaded',
+                            expectedName: clickRes.name
+                        }, r)
+                    );
+                    if (check && check.isLoaded) {
+                        isLoaded = true;
+                        break;
+                    }
+                }
 
-                const loadCheck = await new Promise(r =>
-                    chrome.tabs.sendMessage(mapTab.id, { action: 'checkProfileLoaded' }, r)
-                );
+                if (isLoaded) {
+                    // Extra 1s safety for slow images/dynamic fields
+                    await sleep(1000);
 
-                if (loadCheck && loadCheck.isLoaded) {
                     // 3. Extract and Enrich
                     const data = await performExtraction(true);
                     if (data) {
@@ -207,15 +220,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         autoProcessedCount++;
                         autoCountEl.innerText = autoProcessedCount;
                     }
+                } else {
+                    console.log(`Skipping index ${autoIndex}: Profile didn't load in time.`);
                 }
 
-                // increment and save index
                 autoIndex++;
                 chrome.storage.local.set({ autoIndex });
-
-                // Constant Delay before next listing (Safety)
-                await sleep(2500);
-
+                await sleep(2000);
             } catch (err) {
                 console.error('Auto-sequence error:', err);
                 stopAutoSequence();
