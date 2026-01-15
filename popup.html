@@ -18,8 +18,14 @@
     <main>
       <div class="actions">
         <button id="extractBtn" class="primary-btn">Extract Only</button>
-        <button id="extractEnrichBtn" class="primary-btn" style="background: linear-gradient(135deg, #1a73e8, #185abc);">Extract & Enrich</button>
+        <button id="extractEnrichBtn" class="primary-btn"
+          style="background: linear-gradient(135deg, #1a73e8, #185abc);">Extract & Enrich</button>
+        <button id="autoBtn" class="primary-btn" style="background: linear-gradient(135deg, #df56b2, #a12c82);">Start
+          Auto-Sequence</button>
         <button id="enrichBtn" class="secondary-btn" disabled>Enrich Latest</button>
+      </div>
+      <div id="autoStatus" style="font-size: 11px; margin-top: 5px; color: #a12c82; display: none; font-weight: bold;">
+        Auto-Sequence Active: <span id="autoCount">0</span> processed
       </div>
 
       <div class="stats">

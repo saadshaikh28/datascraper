@@ -8,6 +8,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const data = extractBusinessInfo();
         console.log('[G-Maps Organizer] Extracted Data:', data);
         sendResponse({ data: data });
+    } else if (request.action === 'clickNext') {
+        const success = clickResultByIndex(request.index);
+        sendResponse({ success });
+    } else if (request.action === 'checkProfileLoaded') {
+        const isLoaded = !!(document.querySelector('h1.DUwDvf') || document.querySelector('h1'));
+        sendResponse({ isLoaded });
     }
     return true; // Keep channel open
 });
@@ -174,6 +180,36 @@ function extractBusinessInfo() {
     }
 
     return info;
+}
+
+function clickResultByIndex(index) {
+    // Aggressive list discovery
+    const selectors = ['a.hfpxzc', '[role="article"] a', 'a[href*="/maps/place/"]'];
+    let resultItems = [];
+
+    for (const sel of selectors) {
+        const items = document.querySelectorAll(sel);
+        if (items.length > 0) {
+            resultItems = Array.from(items);
+            break;
+        }
+    }
+
+    console.log(`[G-Maps Organizer] Auto-Sequence: Found ${resultItems.length} results. Trying index ${index}`);
+
+    if (resultItems.length > index) {
+        const target = resultItems[index];
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Give it a moment to scroll
+        setTimeout(() => {
+            target.focus();
+            target.click();
+        }, 600);
+
+        return true;
+    }
+    return false;
 }
 
 /**

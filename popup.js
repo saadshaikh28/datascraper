@@ -5,6 +5,9 @@
 document.addEventListener('DOMContentLoaded', () => {
     const extractBtn = document.getElementById('extractBtn');
     const extractEnrichBtn = document.getElementById('extractEnrichBtn');
+    const autoBtn = document.getElementById('autoBtn');
+    const autoStatus = document.getElementById('autoStatus');
+    const autoCountEl = document.getElementById('autoCount');
     const enrichBtn = document.getElementById('enrichBtn');
     const copyBtn = document.getElementById('copyBtn');
     const csvBtn = document.getElementById('csvBtn');
@@ -15,6 +18,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultsTableBody = document.querySelector('#resultsTable tbody');
 
     let currentData = [];
+    let isAutoActive = false;
+    let autoIndex = 0;
+    let autoProcessedCount = 0;
+
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     // Initial Column Configuration
     let columnOrder = [
@@ -41,9 +49,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let draggedColumnId = null;
 
     // Load existing data and column order from storage
-    chrome.storage.local.get(['businessData', 'columnOrder'], (result) => {
+    chrome.storage.local.get(['businessData', 'columnOrder', 'autoIndex'], (result) => {
         if (result.businessData) {
             currentData = result.businessData;
+        }
+        if (result.autoIndex !== undefined) {
+            autoIndex = result.autoIndex;
         }
         if (result.columnOrder) {
             const savedOrder = result.columnOrder;
@@ -63,7 +74,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Helper: Find Google Maps Tab
     async function getMapsTab() {
         const tabs = await chrome.tabs.query({ url: "*://www.google.com/maps/*" });
-        return tabs.find(t => t.url.includes('/maps/place/'));
+        // Return the first one found
+        return tabs[0];
     }
 
     // Extraction Logic
@@ -142,25 +154,102 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Extract Only Button
-    extractBtn.addEventListener('click', () => performExtraction(false));
-
-    // Extract and Enrich Button (Silent)
-    extractEnrichBtn.addEventListener('click', async () => {
-        extractEnrichBtn.disabled = true;
-        const btnText = extractEnrichBtn.innerText;
-        extractEnrichBtn.innerText = 'Processing...';
-
-        const data = await performExtraction(true);
-        if (data) {
-            await performEnrichment(data, true);
+    // Auto-Sequence Logic
+    async function startAutoSequence() {
+        // Safety: If we are already deep in the list, ask to start over
+        if (autoIndex > 0) {
+            const shouldReset = confirm(`Auto-Sequence is currently at record #${autoIndex + 1}. \n\nClick "OK" to start from the very beginning. \nClick "Cancel" to continue from where you left off.`);
+            if (shouldReset) {
+                autoIndex = 0;
+                chrome.storage.local.set({ autoIndex: 0 });
+            }
         }
 
-        extractEnrichBtn.disabled = false;
-        extractEnrichBtn.innerText = btnText;
+        isAutoActive = true;
+        autoBtn.innerText = 'Stop Auto-Sequence';
+        autoBtn.style.background = '#e74c3c';
+        autoStatus.style.display = 'block';
+        autoProcessedCount = 0;
+        autoCountEl.innerText = autoProcessedCount;
+
+        const mapTab = await getMapsTab();
+        if (!mapTab) {
+            alert('Please ensure you have Google Maps open with a search result list.');
+            stopAutoSequence();
+            return;
+        }
+
+        while (isAutoActive) {
+            try {
+                // 1. Click Next
+                const clickRes = await new Promise(r =>
+                    chrome.tabs.sendMessage(mapTab.id, { action: 'clickNext', index: autoIndex }, r)
+                );
+
+                if (!clickRes || !clickRes.success) {
+                    console.log('Reach end of list or list not found.');
+                    stopAutoSequence();
+                    break;
+                }
+
+                // 2. Wait for profile to load (human-like delay)
+                await sleep(4000);
+
+                const loadCheck = await new Promise(r =>
+                    chrome.tabs.sendMessage(mapTab.id, { action: 'checkProfileLoaded' }, r)
+                );
+
+                if (loadCheck && loadCheck.isLoaded) {
+                    // 3. Extract and Enrich
+                    const data = await performExtraction(true);
+                    if (data) {
+                        await performEnrichment(data, true);
+                        autoProcessedCount++;
+                        autoCountEl.innerText = autoProcessedCount;
+                    }
+                }
+
+                // increment and save index
+                autoIndex++;
+                chrome.storage.local.set({ autoIndex });
+
+                // Constant Delay before next listing (Safety)
+                await sleep(2500);
+
+            } catch (err) {
+                console.error('Auto-sequence error:', err);
+                stopAutoSequence();
+                break;
+            }
+        }
+    }
+
+    function stopAutoSequence() {
+        isAutoActive = false;
+        autoBtn.innerText = 'Start Auto-Sequence';
+        autoBtn.style.background = 'linear-gradient(135deg, #df56b2, #a12c82)';
+        autoStatus.style.display = 'none';
+        chrome.storage.local.set({ autoIndex }); // Persist current index
+    }
+
+    // Listeners
+    autoBtn.addEventListener('click', () => {
+        if (isAutoActive) stopAutoSequence();
+        else startAutoSequence();
     });
 
-    // Enrich Latest Button
+    extractBtn.addEventListener('click', () => performExtraction(false));
+
+    extractEnrichBtn.addEventListener('click', async () => {
+        extractEnrichBtn.disabled = true;
+        const orgText = extractEnrichBtn.innerText;
+        extractEnrichBtn.innerText = 'Processing...';
+        const data = await performExtraction(true);
+        if (data) await performEnrichment(data, true);
+        extractEnrichBtn.disabled = false;
+        extractEnrichBtn.innerText = orgText;
+    });
+
     enrichBtn.addEventListener('click', () => {
         if (currentData.length > 0) {
             performEnrichment(currentData[currentData.length - 1], false);
