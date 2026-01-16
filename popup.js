@@ -210,8 +210,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (isLoaded) {
-                    // Extra 1s safety for slow images/dynamic fields
-                    await sleep(1000);
+                    // Increased safety from 1s to 3s for slow ratings/reviews
+                    await sleep(3000);
 
                     // 3. Extract and Enrich
                     const data = await performExtraction(true);
@@ -226,7 +226,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 autoIndex++;
                 chrome.storage.local.set({ autoIndex });
-                await sleep(2000);
+
+                // Increased delay from 2s to 4s between listings
+                await sleep(4000);
             } catch (err) {
                 console.error('Auto-sequence error:', err);
                 stopAutoSequence();

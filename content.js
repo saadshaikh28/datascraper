@@ -82,15 +82,20 @@ function extractBusinessInfo() {
         try {
             // Priority 1: Consolidated stats container (e.g. "4.5 (1,234 reviews)")
             const statsContainer = detailPane.querySelector('div.F7kYv') ||
+                detailPane.querySelector('div.G77G9d') ||
+                detailPane.querySelector('span.HlvSq') ||
                 detailPane.querySelector('span.fontBodyMedium') ||
                 detailPane.querySelector('div.fontBodyMedium');
 
             if (statsContainer) {
                 const text = statsContainer.innerText || statsContainer.getAttribute('aria-label') || '';
-                const ratingMatch = text.match(/(\d[.,]\d)/);
+                // Flexible regex for rating (supports 4.5, 4,5, or just 4)
+                const ratingMatch = text.match(/(\d[.,]\d)/) || text.match(/^(\d)\s/) || text.match(/(\d)\s*star/i);
                 if (ratingMatch) info.rating = ratingMatch[1].replace(',', '.');
 
-                const reviewsMatch = text.match(/\(([\d,.]+)\)/) || text.match(/([\d,.]+)\s*reviews/i);
+                const reviewsMatch = text.match(/\(([\d,.]+)\)/) ||
+                    text.match(/([\d,.]+)\s*reviews/i) ||
+                    text.match(/([\d,.]+)\s*Ratings/i);
                 if (reviewsMatch) info.reviewCount = reviewsMatch[1].replace(/[^0-9]/g, '');
             }
 
@@ -98,7 +103,8 @@ function extractBusinessInfo() {
             if (!info.rating) {
                 const ratingEl = detailPane.querySelector('span.ceNzR[aria-label*="stars"]') ||
                     detailPane.querySelector('span[aria-label*="stars"]') ||
-                    detailPane.querySelector('span.MW4v7d');
+                    detailPane.querySelector('span.MW4v7d') ||
+                    detailPane.querySelector('div[aria-label*="stars"]');
                 if (ratingEl) {
                     const label = ratingEl.getAttribute('aria-label') || ratingEl.innerText;
                     const match = label.match(/(\d[.,]\d)/) || label.match(/(\d)/);
@@ -110,7 +116,8 @@ function extractBusinessInfo() {
             if (!info.reviewCount) {
                 const reviewsEl = detailPane.querySelector('button[aria-label*="reviews"]') ||
                     detailPane.querySelector('span[aria-label*="reviews"]') ||
-                    detailPane.querySelector('span.a09hYc');
+                    detailPane.querySelector('span.a09hYc') ||
+                    detailPane.querySelector('button[aria-label*="Ratings"]');
                 if (reviewsEl) {
                     const label = reviewsEl.getAttribute('aria-label') || reviewsEl.innerText;
                     const count = label.replace(/[^0-9]/g, '');
@@ -201,7 +208,7 @@ function clickResultByIndex(index) {
         setTimeout(() => {
             target.focus();
             target.click();
-        }, 600);
+        }, 1000);
 
         return { success: true, name: name.trim() };
     }
