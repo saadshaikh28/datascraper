@@ -1,43 +1,67 @@
-# Google Maps Business Data Research Tool
+# 📍 G-Maps Organizer
 
-A lightweight Chrome Extension that extracts business information from Google Maps profiles.
+### *The Ultimate Google Maps Business Data Research Tool*
 
-## How to Use
+**G-Maps Organizer** is a high-performance, lightweight Chrome Extension designed for lead generation, market research, and sales prospecting. It streamlines the process of extracting, organizing, and enriching business data directly from Google Maps into a clean, actionable format.
 
-1. **Open Google Maps** and navigate to a business profile.
-2. **Click the Extension Icon** in your toolbar.
-3. A **standalone window** will open. You can resize this window or move it to another screen for better research.
-4. Click **Extract Business Info** to capture the data from your Maps tab.
-5. Use the **clipboard icons (📋)** as needed:
-   - **Top Header**: Copy an entire column.
-   - **Next to Data**: Copy a single cell.
-   - **Row End**: Copy the entire row for Google Sheets.
-6. Click **Enrich from Website** to fetch extra details like emails.
-
-## How to Load this Extension
-
-1. **Download/Save** all files in this directory to a folder on your computer.
-2. **Open Chrome** and navigate to `chrome://extensions/`.
-3. **Enable Developer Mode** (toggle switch in the top right corner).
-4. Click **Load unpacked**.
-5. Select the folder containing these files.
-6. The extension icon should now appear in your toolbar (you may need to pin it).
-
-## Dependencies
-
-For **XLSX Export** to work, you need to download the `xlsx.full.min.js` library:
-1. Create a folder named `libs` inside the extension directory.
-2. Download [xlsx.full.min.js](https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js) and save it as `libs/xlsx.full.min.js`.
-
-## Data Extracted
-- **Business name**
-- **Primary category**
-- **Address**
-- **Phone number** (Includes country code, digits only to prevent Sheet errors)
-- **Website URL**
-- **Opening hours**
-- **Rating and review count**
-- **Emails & Socials** (via Enrichment)
+![G-Maps Organizer Demo](demo_main.png)
 
 ---
-*Note: This tool is for personal use and does not perform automated extraction or crawling.*
+
+## 🚀 Key Features
+
+- **⚡ Instant Extraction**: Capture business names, categories, addresses, phones, and websites with a single click.
+- **🔍 Deep Enrichment**: Automatically fetch emails, social media profiles, and more directly from business websites.
+- **🔄 Auto-Sequence**: Automate the extraction process across multiple business profiles to build your lead lists faster.
+- **📊 Professional Export**: Export your data to **CSV** or **XLSX** (Excel) format, perfectly formatted for Google Sheets or CRMs.
+- **📋 Smart Copy**: 
+  - Copy individual cells.
+  - Copy entire columns (perfect for email/phone lists).
+  - Copy full rows optimized for spreadsheet pasting.
+- **🖥️ Detached Interface**: Operates in a standalone window, allowing you to research on one screen and manage data on another.
+
+---
+
+## 🛠️ How to Use
+
+1. **Start Research**: Open Google Maps and search for any business category (e.g., "Marketing Agencies in London").
+2. **Launch Extension**: Click the **G-Maps Organizer** icon. A standalone window will appear.
+3. **Capture Data**:
+   - Click **Extract Only** for basic details.
+   - Click **Extract & Enrich** to also find emails and socials.
+   - Use **Start Auto-Sequence** to process results sequentially without manual clicks.
+4. **Manage & Export**: Review your captured records in the table, then use the export buttons to save your CSV or XLSX file.
+
+---
+
+## 📥 Installation (Developer Mode)
+
+1. **Clone/Download** this repository to your local machine.
+2. **Open Chrome** and navigate to `chrome://extensions/`.
+3. **Enable "Developer Mode"** in the top-right corner.
+4. Click **"Load unpacked"** and select the folder containing these files.
+5. Pin the extension to your toolbar for easy access.
+
+> [!IMPORTANT]
+> **Dependencies**: For XLSX export functionality, ensure you have the library saved at `libs/xlsx.full.min.js`. (Link: [xlsx.full.min.js](https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js))
+
+---
+
+## 📋 Data Points Captured
+
+| Feature | Fields Extracted |
+| :--- | :--- |
+| **Core Info** | Business Name, Category, Street Address |
+| **Contact** | Phone Number (Formatted), Website URL |
+| **Performance** | Rating, Total Review Count |
+| **Operational** | Opening Hours |
+| **Enriched** | Emails, LinkedIn, Twitter, Facebook, Instagram |
+
+---
+
+## ⚖️ Disclaimer
+
+This tool is strictly for **personal research and lead generation purposes**. It does not perform automated scraping of Google Maps servers and must be used in accordance with Google's Terms of Service. Data is stored locally in your browser and never sent to any external servers.
+
+---
+*Created by [Saad Shaikh](https://github.com/saadshaikh28)*
